@@ -55,8 +55,19 @@
           <h2>Indstillinger</h2>
           <div class="form-grid">
             <label class="field">
+              <span>Generator-mode</span>
+              <select id="mode-input">
+                <option value="count">Antal ovelser</option>
+                <option value="time">Tid (minutter)</option>
+              </select>
+            </label>
+            <label class="field">
               <span>Antal ovelser</span>
               <input id="count-input" type="number" min="1" max="20" value="6" />
+            </label>
+            <label class="field">
+              <span>Varighed (minutter)</span>
+              <input id="duration-input" type="number" min="5" max="180" value="45" />
             </label>
             <label class="field">
               <span>Min sets</span>
@@ -73,6 +84,14 @@
             <label class="field">
               <span>Max reps</span>
               <input id="max-reps-input" type="number" min="1" max="40" value="12" />
+            </label>
+            <label class="field">
+              <span>Sekunder per rep</span>
+              <input id="rep-seconds-input" type="number" min="1" max="10" value="3" />
+            </label>
+            <label class="field">
+              <span>Pause mellem sets (sek)</span>
+              <input id="rest-seconds-input" type="number" min="0" max="300" value="75" />
             </label>
           </div>
 

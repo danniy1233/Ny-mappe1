@@ -1,14 +1,15 @@
 (function () {
   const STORAGE_KEYS = {
     favorites: "fitness_randomizer_favorites_v1",
-    settings: "fitness_randomizer_settings_v1"
+    settings: "fitness_randomizer_settings_v1",
+    generatedWorkout: "fitness_randomizer_generated_workout_v1"
   };
 
   const state = {
     activeTab: "library",
     favorites: new Set(loadArray(STORAGE_KEYS.favorites)),
     settings: loadSettings(),
-    generatedWorkout: [],
+    generatedWorkout: loadGeneratedWorkout(),
     exercises: EXERCISES.map((exercise, index) => ({
       id: `local-${index + 1}`,
       name: exercise.name,
@@ -27,11 +28,15 @@
     libraryBodyareaFilters: document.getElementById("library-bodyarea-filters"),
     exerciseCount: document.getElementById("exercise-count"),
     exerciseList: document.getElementById("exercise-list"),
+    modeInput: document.getElementById("mode-input"),
     countInput: document.getElementById("count-input"),
+    durationInput: document.getElementById("duration-input"),
     minSetsInput: document.getElementById("min-sets-input"),
     maxSetsInput: document.getElementById("max-sets-input"),
     minRepsInput: document.getElementById("min-reps-input"),
     maxRepsInput: document.getElementById("max-reps-input"),
+    repSecondsInput: document.getElementById("rep-seconds-input"),
+    restSecondsInput: document.getElementById("rest-seconds-input"),
     generatorFavoritesOnly: document.getElementById("generator-favorites-only"),
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
@@ -66,11 +71,15 @@
       renderExerciseList();
     });
 
+    elements.modeInput.addEventListener("change", onGeneratorSettingsChange);
     elements.countInput.addEventListener("change", onGeneratorSettingsChange);
+    elements.durationInput.addEventListener("change", onGeneratorSettingsChange);
     elements.minSetsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.maxSetsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.minRepsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.maxRepsInput.addEventListener("change", onGeneratorSettingsChange);
+    elements.repSecondsInput.addEventListener("change", onGeneratorSettingsChange);
+    elements.restSecondsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
     elements.generateButton.addEventListener("click", generateWorkout);
   }
@@ -188,11 +197,15 @@
   }
 
   function onGeneratorSettingsChange() {
+    state.settings.generator.mode = elements.modeInput.value === "time" ? "time" : "count";
     state.settings.generator.count = clampInt(elements.countInput.value, 1, 20, 6);
+    state.settings.generator.durationMinutes = clampInt(elements.durationInput.value, 5, 180, 45);
     state.settings.generator.minSets = clampInt(elements.minSetsInput.value, 1, 12, 3);
     state.settings.generator.maxSets = clampInt(elements.maxSetsInput.value, 1, 12, 4);
     state.settings.generator.minReps = clampInt(elements.minRepsInput.value, 1, 40, 8);
     state.settings.generator.maxReps = clampInt(elements.maxRepsInput.value, 1, 40, 12);
+    state.settings.generator.repSeconds = clampInt(elements.repSecondsInput.value, 1, 10, 3);
+    state.settings.generator.restSeconds = clampInt(elements.restSecondsInput.value, 0, 300, 75);
     state.settings.generator.favoritesOnly = elements.generatorFavoritesOnly.checked;
 
     if (state.settings.generator.maxSets < state.settings.generator.minSets) {
@@ -221,16 +234,22 @@
 
     if (pool.length === 0) {
       state.generatedWorkout = [];
+      localStorage.setItem(STORAGE_KEYS.generatedWorkout, JSON.stringify([]));
       renderGeneratedWorkout("Ingen ovelser matcher generator-filtrene.");
       return;
     }
 
-    const selected = sampleUnique(pool, Math.min(settings.count, pool.length));
-    state.generatedWorkout = selected.map((exercise) => ({
-      exercise,
-      sets: randomInt(settings.minSets, settings.maxSets),
-      reps: randomInt(settings.minReps, settings.maxReps)
-    }));
+    if (settings.mode === "time") {
+      state.generatedWorkout = generateWorkoutByTime(pool, settings);
+    } else {
+      const selected = sampleUnique(pool, Math.min(settings.count, pool.length));
+      state.generatedWorkout = selected.map((exercise) => ({
+        exercise,
+        sets: randomInt(settings.minSets, settings.maxSets),
+        reps: randomInt(settings.minReps, settings.maxReps)
+      }));
+    }
+    persistGeneratedWorkout();
 
     renderGeneratedWorkout();
   }
@@ -247,6 +266,12 @@
       elements.generatedWorkout.innerHTML = `<p class="muted">Generer en workout for at se resultater.</p>`;
       return;
     }
+
+    const totalSeconds = totalWorkoutSeconds(state.generatedWorkout, state.settings.generator);
+    const estimate = document.createElement("p");
+    estimate.className = "meta";
+    estimate.textContent = `Estimeret varighed: ca. ${Math.max(1, Math.round(totalSeconds / 60))} min`;
+    elements.generatedWorkout.appendChild(estimate);
 
     state.generatedWorkout.forEach((item, index) => {
       const card = document.createElement("article");
@@ -272,11 +297,15 @@
 
     elements.searchInput.value = library.searchText;
     elements.libraryFavoritesOnly.checked = library.favoritesOnly;
+    elements.modeInput.value = generator.mode || "count";
     elements.countInput.value = String(generator.count);
+    elements.durationInput.value = String(generator.durationMinutes || 45);
     elements.minSetsInput.value = String(generator.minSets);
     elements.maxSetsInput.value = String(generator.maxSets);
     elements.minRepsInput.value = String(generator.minReps);
     elements.maxRepsInput.value = String(generator.maxReps);
+    elements.repSecondsInput.value = String(generator.repSeconds || 3);
+    elements.restSecondsInput.value = String(generator.restSeconds || 75);
     elements.generatorFavoritesOnly.checked = generator.favoritesOnly;
   }
 
@@ -289,11 +318,15 @@
         bodyAreas: new Set()
       },
       generator: {
+        mode: "count",
         count: 6,
+        durationMinutes: 45,
         minSets: 3,
         maxSets: 4,
         minReps: 8,
         maxReps: 12,
+        repSeconds: 3,
+        restSeconds: 75,
         favoritesOnly: false,
         equipment: new Set(),
         bodyAreas: new Set()
@@ -313,11 +346,15 @@
           bodyAreas: new Set(Array.isArray(parsed?.library?.bodyAreas) ? parsed.library.bodyAreas : [])
         },
         generator: {
+          mode: parsed?.generator?.mode === "time" ? "time" : "count",
           count: clampInt(parsed?.generator?.count, 1, 20, 6),
+          durationMinutes: clampInt(parsed?.generator?.durationMinutes, 5, 180, 45),
           minSets: clampInt(parsed?.generator?.minSets, 1, 12, 3),
           maxSets: clampInt(parsed?.generator?.maxSets, 1, 12, 4),
           minReps: clampInt(parsed?.generator?.minReps, 1, 40, 8),
           maxReps: clampInt(parsed?.generator?.maxReps, 1, 40, 12),
+          repSeconds: clampInt(parsed?.generator?.repSeconds, 1, 10, 3),
+          restSeconds: clampInt(parsed?.generator?.restSeconds, 0, 300, 75),
           favoritesOnly: Boolean(parsed?.generator?.favoritesOnly),
           equipment: new Set(Array.isArray(parsed?.generator?.equipment) ? parsed.generator.equipment : []),
           bodyAreas: new Set(Array.isArray(parsed?.generator?.bodyAreas) ? parsed.generator.bodyAreas : [])
@@ -337,11 +374,15 @@
         bodyAreas: Array.from(state.settings.library.bodyAreas)
       },
       generator: {
+        mode: state.settings.generator.mode,
         count: state.settings.generator.count,
+        durationMinutes: state.settings.generator.durationMinutes,
         minSets: state.settings.generator.minSets,
         maxSets: state.settings.generator.maxSets,
         minReps: state.settings.generator.minReps,
         maxReps: state.settings.generator.maxReps,
+        repSeconds: state.settings.generator.repSeconds,
+        restSeconds: state.settings.generator.restSeconds,
         favoritesOnly: state.settings.generator.favoritesOnly,
         equipment: Array.from(state.settings.generator.equipment),
         bodyAreas: Array.from(state.settings.generator.bodyAreas)
@@ -359,6 +400,35 @@
     } catch (_error) {
       return [];
     }
+  }
+
+  function loadGeneratedWorkout() {
+    const raw = loadArray(STORAGE_KEYS.generatedWorkout);
+    return raw
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const exercise = item.exercise;
+        const sets = Number.parseInt(String(item.sets), 10);
+        const reps = Number.parseInt(String(item.reps), 10);
+        if (!exercise || typeof exercise !== "object") return null;
+        if (!exercise.id || !exercise.name) return null;
+        if (Number.isNaN(sets) || Number.isNaN(reps)) return null;
+        return {
+          exercise: {
+            id: String(exercise.id),
+            name: String(exercise.name),
+            equipment: Array.isArray(exercise.equipment) ? exercise.equipment : [],
+            bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : []
+          },
+          sets,
+          reps
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function persistGeneratedWorkout() {
+    localStorage.setItem(STORAGE_KEYS.generatedWorkout, JSON.stringify(state.generatedWorkout));
   }
 
   function toggleSetValue(set, value) {
@@ -383,6 +453,37 @@
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy.slice(0, count);
+  }
+
+  function estimateExerciseSeconds(sets, reps, settings) {
+    const workSeconds = sets * reps * settings.repSeconds;
+    const restSeconds = Math.max(0, sets - 1) * settings.restSeconds;
+    return workSeconds + restSeconds;
+  }
+
+  function totalWorkoutSeconds(workoutItems, settings) {
+    return workoutItems.reduce((sum, item) => sum + estimateExerciseSeconds(item.sets, item.reps, settings), 0);
+  }
+
+  function generateWorkoutByTime(pool, settings) {
+    const targetSeconds = settings.durationMinutes * 60;
+    const shuffled = sampleUnique(pool, pool.length);
+    const result = [];
+    let accumulated = 0;
+
+    for (const exercise of shuffled) {
+      const sets = randomInt(settings.minSets, settings.maxSets);
+      const reps = randomInt(settings.minReps, settings.maxReps);
+      const seconds = estimateExerciseSeconds(sets, reps, settings);
+
+      if (accumulated + seconds <= targetSeconds || result.length === 0) {
+        result.push({ exercise, sets, reps });
+        accumulated += seconds;
+      }
+      if (accumulated >= targetSeconds) break;
+    }
+
+    return result;
   }
 
   function escapeHtml(value) {
