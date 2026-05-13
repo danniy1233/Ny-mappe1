@@ -49,6 +49,7 @@
     generateButton: document.getElementById("generate-button"),
     generatedWorkout: document.getElementById("generated-workout"),
     historyList: document.getElementById("history-list"),
+    clearHistory: document.getElementById("clear-history"),
     startFromGenerated: document.getElementById("start-from-generated"),
     finishActiveWorkout: document.getElementById("finish-active-workout"),
     clearActiveWorkout: document.getElementById("clear-active-workout"),
@@ -101,6 +102,7 @@
     elements.restSecondsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
     elements.generateButton.addEventListener("click", generateWorkout);
+    elements.clearHistory.addEventListener("click", clearAllHistory);
     elements.startFromGenerated.addEventListener("click", startFromGeneratedWorkout);
     elements.finishActiveWorkout.addEventListener("click", finishActiveWorkout);
     elements.clearActiveWorkout.addEventListener("click", clearActiveWorkout);
@@ -754,27 +756,16 @@
     state.activeWorkout.items.forEach((item, exerciseIndex) => {
       const card = document.createElement("article");
       card.className = `workout-card${exerciseIndex === currentIndex ? " active-workout-card" : ""}`;
-      const setRows = Array.from({ length: item.sets }, (_, setIndex) => {
+      const pills = Array.from({ length: item.sets }, (_, setIndex) => {
         const done = setIndex < item.completedSets;
-        return `
-          <button
-            type="button"
-            class="set-row ${done ? "done" : ""}"
-            data-active-action="set"
-            data-exercise-index="${exerciseIndex}"
-            data-set-index="${setIndex}"
-          >
-            <span>Set ${setIndex + 1}</span>
-            <span>${item.reps} reps</span>
-          </button>
-        `;
+        return `<button type="button" class="set-pill ${done ? "done" : ""}" data-active-action="set" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}">Set ${setIndex + 1}</button>`;
       }).join("");
 
       card.innerHTML = `
         <h3 class="exercise-name">${exerciseIndex + 1}. ${escapeHtml(item.exercise.name)}</h3>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
-        <div class="set-list">${setRows}</div>
-        <p class="set-help">Swipe hoejre/venstre pa en set-række (eller tryk) for at markere/afmarkere.</p>
+        <div class="set-track">${pills}</div>
+        <p class="set-help">Swipe pa et set (eller tryk) for at markere/afmarkere.</p>
       `;
       elements.activeWorkoutList.appendChild(card);
     });
@@ -978,6 +969,14 @@
         }
       });
     });
+  }
+
+  function clearAllHistory() {
+    const shouldClear = window.confirm("Er du sikker på at du vil slette al historik?");
+    if (!shouldClear) return;
+    state.workoutHistory = [];
+    localStorage.setItem(STORAGE_KEYS.workoutHistory, JSON.stringify([]));
+    renderHistory();
   }
 
   function duplicateGeneratedWorkoutItem(index) {

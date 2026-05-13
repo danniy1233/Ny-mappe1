@@ -286,28 +286,24 @@ select {
   box-shadow: 0 0 0 2px rgba(95, 168, 211, 0.12);
 }
 
-.set-list {
-  display: grid;
+.set-track {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
 
-.set-row {
-  width: 100%;
+.set-pill {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
   background: #fff;
-  color: var(--text);
-  padding: 10px 12px;
-  font-size: 0.9rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   user-select: none;
   touch-action: pan-y;
 }
 
-.set-row.done {
+.set-pill.done {
   background: #d9f3e5;
   border-color: #7ac9a2;
   color: #145c3c;
