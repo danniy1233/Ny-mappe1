@@ -138,9 +138,27 @@
           <h2>Aktiv workout</h2>
           <div class="workout-actions">
             <button id="start-from-generated" type="button" class="primary">Start fra seneste workout</button>
-            <button id="clear-active-workout" type="button" class="danger">Afslut og ryd</button>
+            <button id="finish-active-workout" type="button" class="secondary">Afslut og gem i historik</button>
+            <button id="clear-active-workout" type="button" class="danger">Ryd aktiv workout</button>
           </div>
           <div id="active-workout-summary" class="meta"></div>
+          <div class="panel soft-panel">
+            <h3>Nuværende øvelse</h3>
+            <div id="current-exercise-focus" class="meta">Ingen aktiv workout.</div>
+            <div class="workout-actions">
+              <button id="prev-exercise" type="button" class="secondary small">Forrige</button>
+              <button id="next-exercise" type="button" class="secondary small">Næste</button>
+              <button id="mark-current-set" type="button" class="secondary small">+1 set færdig</button>
+            </div>
+          </div>
+          <div class="panel soft-panel">
+            <h3>Rest timer</h3>
+            <div id="rest-timer-display" class="timer-display">01:15</div>
+            <div class="workout-actions">
+              <button id="rest-start-pause" type="button" class="secondary small">Start/Pause</button>
+              <button id="rest-reset" type="button" class="secondary small">Reset</button>
+            </div>
+          </div>
           <div id="active-workout-list" class="workout-list">
             <p class="muted">Start en workout fra din seneste genererede plan.</p>
           </div>

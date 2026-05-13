@@ -21,6 +21,7 @@
       bodyAreas: exercise.bodyAreas || []
     }))
   };
+  let restTimerIntervalId = null;
 
   const elements = {
     tabs: document.querySelectorAll(".tab-button"),
@@ -50,9 +51,17 @@
     generatedWorkout: document.getElementById("generated-workout"),
     historyList: document.getElementById("history-list"),
     startFromGenerated: document.getElementById("start-from-generated"),
+    finishActiveWorkout: document.getElementById("finish-active-workout"),
     clearActiveWorkout: document.getElementById("clear-active-workout"),
     activeWorkoutSummary: document.getElementById("active-workout-summary"),
-    activeWorkoutList: document.getElementById("active-workout-list")
+    activeWorkoutList: document.getElementById("active-workout-list"),
+    currentExerciseFocus: document.getElementById("current-exercise-focus"),
+    prevExercise: document.getElementById("prev-exercise"),
+    nextExercise: document.getElementById("next-exercise"),
+    markCurrentSet: document.getElementById("mark-current-set"),
+    restTimerDisplay: document.getElementById("rest-timer-display"),
+    restStartPause: document.getElementById("rest-start-pause"),
+    restReset: document.getElementById("rest-reset")
   };
 
   initialize();
@@ -97,7 +106,13 @@
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
     elements.generateButton.addEventListener("click", generateWorkout);
     elements.startFromGenerated.addEventListener("click", startFromGeneratedWorkout);
+    elements.finishActiveWorkout.addEventListener("click", finishActiveWorkout);
     elements.clearActiveWorkout.addEventListener("click", clearActiveWorkout);
+    elements.prevExercise.addEventListener("click", () => moveCurrentExercise(-1));
+    elements.nextExercise.addEventListener("click", () => moveCurrentExercise(1));
+    elements.markCurrentSet.addEventListener("click", markCurrentSetDone);
+    elements.restStartPause.addEventListener("click", toggleRestTimer);
+    elements.restReset.addEventListener("click", resetRestTimer);
   }
 
   function switchTab(tabName) {
@@ -670,6 +685,9 @@
     if (!Array.isArray(state.generatedWorkout) || state.generatedWorkout.length === 0) return;
     state.activeWorkout = {
       startedAt: new Date().toISOString(),
+      currentExerciseIndex: 0,
+      restSecondsRemaining: state.settings.generator.restSeconds || 75,
+      restRunning: false,
       items: state.generatedWorkout.map((item) => ({
         exercise: item.exercise,
         sets: item.sets,
@@ -677,12 +695,30 @@
         completedSets: 0
       }))
     };
+    stopRestTimer();
     persistActiveWorkout();
     switchTab("start");
     renderActiveWorkout();
   }
 
+  function finishActiveWorkout() {
+    if (!state.activeWorkout || !Array.isArray(state.activeWorkout.items) || state.activeWorkout.items.length === 0) return;
+    const completedPlan = state.activeWorkout.items.map((item) => ({
+      exercise: item.exercise,
+      sets: item.sets,
+      reps: item.reps,
+      locked: false
+    }));
+    pushWorkoutHistoryEntry(completedPlan);
+    stopRestTimer();
+    state.activeWorkout = null;
+    localStorage.removeItem(STORAGE_KEYS.activeWorkout);
+    renderHistory();
+    renderActiveWorkout();
+  }
+
   function clearActiveWorkout() {
+    stopRestTimer();
     state.activeWorkout = null;
     localStorage.removeItem(STORAGE_KEYS.activeWorkout);
     renderActiveWorkout();
@@ -692,20 +728,55 @@
     elements.activeWorkoutList.innerHTML = "";
     if (!state.activeWorkout || !Array.isArray(state.activeWorkout.items) || state.activeWorkout.items.length === 0) {
       elements.activeWorkoutSummary.textContent = "";
+      elements.currentExerciseFocus.textContent = "Ingen aktiv workout.";
+      elements.restTimerDisplay.textContent = formatSeconds(state.settings.generator.restSeconds || 75);
+      elements.restStartPause.textContent = "Start";
+      elements.prevExercise.disabled = true;
+      elements.nextExercise.disabled = true;
+      elements.markCurrentSet.disabled = true;
+      elements.restStartPause.disabled = true;
+      elements.restReset.disabled = true;
       elements.activeWorkoutList.innerHTML =
         `<p class="muted">Start en workout fra din seneste genererede plan.</p>`;
       return;
     }
 
+    const currentIndex = clampInt(
+      state.activeWorkout.currentExerciseIndex ?? 0,
+      0,
+      Math.max(0, state.activeWorkout.items.length - 1),
+      0
+    );
+    state.activeWorkout.currentExerciseIndex = currentIndex;
+
     const totalSets = state.activeWorkout.items.reduce((sum, item) => sum + item.sets, 0);
     const doneSets = state.activeWorkout.items.reduce((sum, item) => sum + item.completedSets, 0);
+    const elapsedMin = Math.max(
+      0,
+      Math.round((Date.now() - new Date(state.activeWorkout.startedAt).getTime()) / 60000)
+    );
     elements.activeWorkoutSummary.textContent = `Progress: ${doneSets}/${totalSets} sets (${Math.round(
       (doneSets / Math.max(1, totalSets)) * 100
-    )}%)`;
+    )}%) • Tid: ${elapsedMin} min`;
+    const current = state.activeWorkout.items[currentIndex];
+    elements.currentExerciseFocus.textContent = current
+      ? `${currentIndex + 1}/${state.activeWorkout.items.length}: ${current.exercise.name} (${current.completedSets}/${current.sets} sets færdig)`
+      : "Ingen nuværende øvelse.";
+    elements.restStartPause.textContent = state.activeWorkout.restRunning ? "Pause" : "Start";
+    elements.prevExercise.disabled = false;
+    elements.nextExercise.disabled = false;
+    elements.markCurrentSet.disabled = false;
+    elements.restStartPause.disabled = false;
+    elements.restReset.disabled = false;
+    elements.restTimerDisplay.textContent = formatSeconds(
+      Number.isFinite(state.activeWorkout.restSecondsRemaining)
+        ? state.activeWorkout.restSecondsRemaining
+        : state.settings.generator.restSeconds || 75
+    );
 
     state.activeWorkout.items.forEach((item, exerciseIndex) => {
       const card = document.createElement("article");
-      card.className = "workout-card";
+      card.className = `workout-card${exerciseIndex === currentIndex ? " active-workout-card" : ""}`;
       const pills = Array.from({ length: item.sets }, (_, setIndex) => {
         const done = setIndex < item.completedSets;
         return `<button type="button" class="set-pill ${done ? "done" : ""}" data-active-action="set" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}">Set ${setIndex + 1}</button>`;
@@ -763,6 +834,89 @@
     item.completedSets = Math.max(0, Math.min(item.sets, item.completedSets));
     persistActiveWorkout();
     renderActiveWorkout();
+  }
+
+  function moveCurrentExercise(delta) {
+    if (!state.activeWorkout || !Array.isArray(state.activeWorkout.items) || state.activeWorkout.items.length === 0) return;
+    const maxIndex = state.activeWorkout.items.length - 1;
+    const nextIndex = Math.max(0, Math.min(maxIndex, (state.activeWorkout.currentExerciseIndex || 0) + delta));
+    state.activeWorkout.currentExerciseIndex = nextIndex;
+    persistActiveWorkout();
+    renderActiveWorkout();
+  }
+
+  function markCurrentSetDone() {
+    if (!state.activeWorkout || !Array.isArray(state.activeWorkout.items) || state.activeWorkout.items.length === 0) return;
+    const index = clampInt(
+      state.activeWorkout.currentExerciseIndex ?? 0,
+      0,
+      Math.max(0, state.activeWorkout.items.length - 1),
+      0
+    );
+    const item = state.activeWorkout.items[index];
+    if (!item) return;
+    item.completedSets = Math.max(0, Math.min(item.sets, (item.completedSets || 0) + 1));
+    persistActiveWorkout();
+    renderActiveWorkout();
+  }
+
+  function toggleRestTimer() {
+    if (!state.activeWorkout) return;
+    state.activeWorkout.restRunning = !state.activeWorkout.restRunning;
+    if (state.activeWorkout.restRunning) {
+      startRestTimer();
+    } else {
+      stopRestTimer();
+    }
+    persistActiveWorkout();
+    renderActiveWorkout();
+  }
+
+  function startRestTimer() {
+    stopRestTimer();
+    restTimerIntervalId = setInterval(() => {
+      if (!state.activeWorkout) {
+        stopRestTimer();
+        return;
+      }
+      const current = Number.isFinite(state.activeWorkout.restSecondsRemaining)
+        ? state.activeWorkout.restSecondsRemaining
+        : state.settings.generator.restSeconds || 75;
+      if (current <= 0) {
+        state.activeWorkout.restRunning = false;
+        stopRestTimer();
+        persistActiveWorkout();
+        renderActiveWorkout();
+        return;
+      }
+      state.activeWorkout.restSecondsRemaining = current - 1;
+      persistActiveWorkout();
+      elements.restTimerDisplay.textContent = formatSeconds(state.activeWorkout.restSecondsRemaining);
+    }, 1000);
+  }
+
+  function stopRestTimer() {
+    if (restTimerIntervalId) {
+      clearInterval(restTimerIntervalId);
+      restTimerIntervalId = null;
+    }
+    if (state.activeWorkout) {
+      state.activeWorkout.restRunning = false;
+    }
+  }
+
+  function resetRestTimer() {
+    if (!state.activeWorkout) return;
+    state.activeWorkout.restSecondsRemaining = state.settings.generator.restSeconds || 75;
+    persistActiveWorkout();
+    renderActiveWorkout();
+  }
+
+  function formatSeconds(totalSeconds) {
+    const safe = Math.max(0, Number.parseInt(String(totalSeconds), 10) || 0);
+    const mm = String(Math.floor(safe / 60)).padStart(2, "0");
+    const ss = String(safe % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
   }
 
   function loadWorkoutHistory() {
@@ -829,6 +983,14 @@
       if (items.length === 0) return null;
       return {
         startedAt: String(parsed.startedAt || new Date().toISOString()),
+        currentExerciseIndex: clampInt(parsed.currentExerciseIndex, 0, Math.max(0, items.length - 1), 0),
+        restSecondsRemaining: clampInt(
+          parsed.restSecondsRemaining,
+          0,
+          3600,
+          75
+        ),
+        restRunning: false,
         items
       };
     } catch (_error) {

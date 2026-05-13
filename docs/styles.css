@@ -80,6 +80,10 @@ body {
   margin-bottom: 14px;
 }
 
+.soft-panel {
+  background: #f9fcff;
+}
+
 .panel h2 {
   margin: 0 0 12px;
   font-size: 1.1rem;
@@ -277,6 +281,11 @@ select {
   cursor: move;
 }
 
+.active-workout-card {
+  border-color: #5fa8d3;
+  box-shadow: 0 0 0 2px rgba(95, 168, 211, 0.12);
+}
+
 .set-track {
   display: flex;
   flex-wrap: wrap;
@@ -304,6 +313,13 @@ select {
   margin-top: 8px;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.timer-display {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 4px 0 8px;
 }
 
 .workout-line {
