@@ -17,6 +17,8 @@
       <nav class="tabs">
         <button class="tab-button active" data-tab="library">Ovelsesbibliotek</button>
         <button class="tab-button" data-tab="generator">Workout-generator</button>
+        <button class="tab-button" data-tab="history">Historik</button>
+        <button class="tab-button" data-tab="start">Start workout</button>
       </nav>
 
       <section id="library-tab" class="tab-panel active">
@@ -61,11 +63,11 @@
                 <option value="time">Tid (minutter)</option>
               </select>
             </label>
-            <label class="field">
+            <label class="field mode-count">
               <span>Antal ovelser</span>
               <input id="count-input" type="number" min="1" max="20" value="6" />
             </label>
-            <label class="field">
+            <label class="field mode-time">
               <span>Varighed (minutter)</span>
               <input id="duration-input" type="number" min="5" max="180" value="45" />
             </label>
@@ -85,11 +87,11 @@
               <span>Max reps</span>
               <input id="max-reps-input" type="number" min="1" max="40" value="12" />
             </label>
-            <label class="field">
+            <label class="field mode-time">
               <span>Sekunder per rep</span>
               <input id="rep-seconds-input" type="number" min="1" max="10" value="3" />
             </label>
-            <label class="field">
+            <label class="field mode-time">
               <span>Pause mellem sets (sek)</span>
               <input id="rest-seconds-input" type="number" min="0" max="300" value="75" />
             </label>
@@ -118,6 +120,29 @@
           <h2>Seneste workout</h2>
           <div id="generated-workout" class="workout-list">
             <p class="muted">Generer en workout for at se resultater.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="history-tab" class="tab-panel">
+        <div class="panel">
+          <h2>Gemte workouts</h2>
+          <div id="history-list" class="workout-list">
+            <p class="muted">Ingen historik endnu.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="start-tab" class="tab-panel">
+        <div class="panel">
+          <h2>Aktiv workout</h2>
+          <div class="workout-actions">
+            <button id="start-from-generated" type="button" class="primary">Start fra seneste workout</button>
+            <button id="clear-active-workout" type="button" class="danger">Afslut og ryd</button>
+          </div>
+          <div id="active-workout-summary" class="meta"></div>
+          <div id="active-workout-list" class="workout-list">
+            <p class="muted">Start en workout fra din seneste genererede plan.</p>
           </div>
         </div>
       </section>

@@ -98,6 +98,10 @@ body {
   margin-bottom: 10px;
 }
 
+.hidden-field {
+  display: none !important;
+}
+
 .field span {
   font-size: 0.9rem;
   color: var(--muted);
@@ -271,6 +275,35 @@ select {
 
 .workout-card[draggable="true"] {
   cursor: move;
+}
+
+.set-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.set-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  background: #fff;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.set-pill.done {
+  background: #d9f3e5;
+  border-color: #7ac9a2;
+  color: #145c3c;
+}
+
+.set-help {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .workout-line {

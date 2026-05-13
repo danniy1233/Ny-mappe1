@@ -2,7 +2,9 @@
   const STORAGE_KEYS = {
     favorites: "fitness_randomizer_favorites_v1",
     settings: "fitness_randomizer_settings_v1",
-    generatedWorkout: "fitness_randomizer_generated_workout_v1"
+    generatedWorkout: "fitness_randomizer_generated_workout_v1",
+    workoutHistory: "fitness_randomizer_workout_history_v1",
+    activeWorkout: "fitness_randomizer_active_workout_v1"
   };
 
   const state = {
@@ -10,6 +12,8 @@
     favorites: new Set(loadArray(STORAGE_KEYS.favorites)),
     settings: loadSettings(),
     generatedWorkout: loadGeneratedWorkout(),
+    workoutHistory: loadWorkoutHistory(),
+    activeWorkout: loadActiveWorkout(),
     exercises: EXERCISES.map((exercise, index) => ({
       id: `local-${index + 1}`,
       name: exercise.name,
@@ -22,6 +26,8 @@
     tabs: document.querySelectorAll(".tab-button"),
     libraryTab: document.getElementById("library-tab"),
     generatorTab: document.getElementById("generator-tab"),
+    historyTab: document.getElementById("history-tab"),
+    startTab: document.getElementById("start-tab"),
     searchInput: document.getElementById("search-input"),
     libraryFavoritesOnly: document.getElementById("library-favorites-only"),
     libraryEquipmentFilters: document.getElementById("library-equipment-filters"),
@@ -41,17 +47,25 @@
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
     generateButton: document.getElementById("generate-button"),
-    generatedWorkout: document.getElementById("generated-workout")
+    generatedWorkout: document.getElementById("generated-workout"),
+    historyList: document.getElementById("history-list"),
+    startFromGenerated: document.getElementById("start-from-generated"),
+    clearActiveWorkout: document.getElementById("clear-active-workout"),
+    activeWorkoutSummary: document.getElementById("active-workout-summary"),
+    activeWorkoutList: document.getElementById("active-workout-list")
   };
 
   initialize();
 
   function initialize() {
     hydrateInputsFromSettings();
+    updateGeneratorModeVisibility();
     wireEvents();
     renderFilters();
     renderExerciseList();
     renderGeneratedWorkout();
+    renderHistory();
+    renderActiveWorkout();
   }
 
   function wireEvents() {
@@ -82,6 +96,8 @@
     elements.restSecondsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
     elements.generateButton.addEventListener("click", generateWorkout);
+    elements.startFromGenerated.addEventListener("click", startFromGeneratedWorkout);
+    elements.clearActiveWorkout.addEventListener("click", clearActiveWorkout);
   }
 
   function switchTab(tabName) {
@@ -91,6 +107,8 @@
     });
     elements.libraryTab.classList.toggle("active", tabName === "library");
     elements.generatorTab.classList.toggle("active", tabName === "generator");
+    elements.historyTab.classList.toggle("active", tabName === "history");
+    elements.startTab.classList.toggle("active", tabName === "start");
   }
 
   function renderFilters() {
@@ -215,6 +233,7 @@
       state.settings.generator.maxReps = state.settings.generator.minReps;
     }
 
+    updateGeneratorModeVisibility();
     hydrateInputsFromSettings();
     persistSettings();
   }
@@ -259,8 +278,10 @@
     }
     state.generatedWorkout = [...lockedItems, ...freshItems];
     persistGeneratedWorkout();
+    pushWorkoutHistoryEntry(state.generatedWorkout);
 
     renderGeneratedWorkout();
+    renderHistory();
   }
 
   function renderGeneratedWorkout(message) {
@@ -291,17 +312,18 @@
     });
     elements.generatedWorkout.appendChild(addButton);
 
+    const datalistId = "exercise-options-datalist";
+    const datalistOptions = state.exercises
+      .map((exercise) => `<option value="${escapeHtml(exercise.name)}"></option>`)
+      .join("");
+    const datalist = document.createElement("datalist");
+    datalist.id = datalistId;
+    datalist.innerHTML = datalistOptions;
+    elements.generatedWorkout.appendChild(datalist);
+
     state.generatedWorkout.forEach((item, index) => {
       const card = document.createElement("article");
       card.className = "workout-card";
-      const exerciseOptions = state.exercises
-        .map(
-          (exercise) =>
-            `<option value="${escapeHtml(exercise.id)}" ${
-              exercise.id === item.exercise.id ? "selected" : ""
-            }>${escapeHtml(exercise.name)}</option>`
-        )
-        .join("");
 
       card.innerHTML = `
         <h3 class="exercise-name">${index + 1}. ${escapeHtml(item.exercise.name)}</h3>
@@ -310,10 +332,8 @@
           <span>Laas ovelse</span>
         </label>
         <label class="field">
-          <span>Ovelse</span>
-          <select data-edit-type="exercise" data-index="${index}">
-            ${exerciseOptions}
-          </select>
+          <span>Ovelse (sogbar)</span>
+          <input data-edit-type="exercise-search" data-index="${index}" type="search" list="${datalistId}" value="${escapeHtml(item.exercise.name)}" placeholder="Sog efter ovelse..." />
         </label>
         <div class="inline-edit">
           <label class="field">
@@ -391,6 +411,16 @@
     elements.repSecondsInput.value = String(generator.repSeconds || 3);
     elements.restSecondsInput.value = String(generator.restSeconds || 75);
     elements.generatorFavoritesOnly.checked = generator.favoritesOnly;
+  }
+
+  function updateGeneratorModeVisibility() {
+    const mode = elements.modeInput.value === "time" ? "time" : "count";
+    document.querySelectorAll(".mode-count").forEach((node) => {
+      node.classList.toggle("hidden-field", mode !== "count");
+    });
+    document.querySelectorAll(".mode-time").forEach((node) => {
+      node.classList.toggle("hidden-field", mode !== "time");
+    });
   }
 
   function loadSettings() {
@@ -579,10 +609,13 @@
       item.sets = clampInt(target.value, 1, 12, item.sets);
     } else if (action === "reps") {
       item.reps = clampInt(target.value, 1, 40, item.reps);
-    } else if (action === "exercise") {
-      const nextExercise = state.exercises.find((exercise) => exercise.id === target.value);
+    } else if (action === "exercise-search") {
+      const nextExercise = findExerciseByName(target.value);
       if (nextExercise) {
         item.exercise = nextExercise;
+        target.value = nextExercise.name;
+      } else {
+        target.value = item.exercise.name;
       }
     } else if (action === "lock") {
       item.locked = Boolean(target.checked);
@@ -614,6 +647,253 @@
     });
     persistGeneratedWorkout();
     renderGeneratedWorkout();
+  }
+
+  function pushWorkoutHistoryEntry(workoutItems) {
+    if (!Array.isArray(workoutItems) || workoutItems.length === 0) return;
+    const entry = {
+      id: `h-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      items: workoutItems.map((item) => ({
+        exercise: item.exercise,
+        sets: item.sets,
+        reps: item.reps,
+        locked: Boolean(item.locked)
+      }))
+    };
+    state.workoutHistory.unshift(entry);
+    state.workoutHistory = state.workoutHistory.slice(0, 100);
+    localStorage.setItem(STORAGE_KEYS.workoutHistory, JSON.stringify(state.workoutHistory));
+  }
+
+  function startFromGeneratedWorkout() {
+    if (!Array.isArray(state.generatedWorkout) || state.generatedWorkout.length === 0) return;
+    state.activeWorkout = {
+      startedAt: new Date().toISOString(),
+      items: state.generatedWorkout.map((item) => ({
+        exercise: item.exercise,
+        sets: item.sets,
+        reps: item.reps,
+        completedSets: 0
+      }))
+    };
+    persistActiveWorkout();
+    switchTab("start");
+    renderActiveWorkout();
+  }
+
+  function clearActiveWorkout() {
+    state.activeWorkout = null;
+    localStorage.removeItem(STORAGE_KEYS.activeWorkout);
+    renderActiveWorkout();
+  }
+
+  function renderActiveWorkout() {
+    elements.activeWorkoutList.innerHTML = "";
+    if (!state.activeWorkout || !Array.isArray(state.activeWorkout.items) || state.activeWorkout.items.length === 0) {
+      elements.activeWorkoutSummary.textContent = "";
+      elements.activeWorkoutList.innerHTML =
+        `<p class="muted">Start en workout fra din seneste genererede plan.</p>`;
+      return;
+    }
+
+    const totalSets = state.activeWorkout.items.reduce((sum, item) => sum + item.sets, 0);
+    const doneSets = state.activeWorkout.items.reduce((sum, item) => sum + item.completedSets, 0);
+    elements.activeWorkoutSummary.textContent = `Progress: ${doneSets}/${totalSets} sets (${Math.round(
+      (doneSets / Math.max(1, totalSets)) * 100
+    )}%)`;
+
+    state.activeWorkout.items.forEach((item, exerciseIndex) => {
+      const card = document.createElement("article");
+      card.className = "workout-card";
+      const pills = Array.from({ length: item.sets }, (_, setIndex) => {
+        const done = setIndex < item.completedSets;
+        return `<button type="button" class="set-pill ${done ? "done" : ""}" data-active-action="set" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}">Set ${setIndex + 1}</button>`;
+      }).join("");
+
+      card.innerHTML = `
+        <h3 class="exercise-name">${exerciseIndex + 1}. ${escapeHtml(item.exercise.name)}</h3>
+        <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
+        <div class="set-track">${pills}</div>
+        <p class="set-help">Swipe pa et set (eller tryk) for at markere/afmarkere.</p>
+      `;
+      elements.activeWorkoutList.appendChild(card);
+    });
+
+    wireActiveWorkoutSetControls();
+  }
+
+  function wireActiveWorkoutSetControls() {
+    elements.activeWorkoutList.querySelectorAll('[data-active-action="set"]').forEach((button) => {
+      button.addEventListener("click", () => {
+        toggleSetFromControl(button);
+      });
+
+      let touchStartX = null;
+      button.addEventListener(
+        "touchstart",
+        (event) => {
+          touchStartX = event.changedTouches[0]?.clientX ?? null;
+        },
+        { passive: true }
+      );
+      button.addEventListener(
+        "touchend",
+        (event) => {
+          const touchEndX = event.changedTouches[0]?.clientX ?? null;
+          if (touchStartX === null || touchEndX === null) return;
+          if (Math.abs(touchEndX - touchStartX) >= 24) {
+            toggleSetFromControl(button);
+          }
+        },
+        { passive: true }
+      );
+    });
+  }
+
+  function toggleSetFromControl(control) {
+    const exerciseIndex = Number.parseInt(control.getAttribute("data-exercise-index") || "", 10);
+    const setIndex = Number.parseInt(control.getAttribute("data-set-index") || "", 10);
+    if (Number.isNaN(exerciseIndex) || Number.isNaN(setIndex)) return;
+    const item = state.activeWorkout?.items?.[exerciseIndex];
+    if (!item) return;
+
+    const targetCompleted = setIndex + 1;
+    item.completedSets = item.completedSets === targetCompleted ? targetCompleted - 1 : targetCompleted;
+    item.completedSets = Math.max(0, Math.min(item.sets, item.completedSets));
+    persistActiveWorkout();
+    renderActiveWorkout();
+  }
+
+  function loadWorkoutHistory() {
+    const raw = loadArray(STORAGE_KEYS.workoutHistory);
+    return raw
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        if (!Array.isArray(entry.items) || entry.items.length === 0) return null;
+        return {
+          id: String(entry.id || `h-${Math.random().toString(36).slice(2)}`),
+          createdAt: String(entry.createdAt || new Date().toISOString()),
+          items: entry.items
+            .map((item) => {
+              if (!item || typeof item !== "object") return null;
+              const exercise = item.exercise;
+              const sets = Number.parseInt(String(item.sets), 10);
+              const reps = Number.parseInt(String(item.reps), 10);
+              if (!exercise || !exercise.id || !exercise.name) return null;
+              if (Number.isNaN(sets) || Number.isNaN(reps)) return null;
+              return {
+                exercise: {
+                  id: String(exercise.id),
+                  name: String(exercise.name),
+                  equipment: Array.isArray(exercise.equipment) ? exercise.equipment : [],
+                  bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : []
+                },
+                sets,
+                reps,
+                locked: Boolean(item.locked)
+              };
+            })
+            .filter(Boolean)
+        };
+      })
+      .filter((entry) => entry && entry.items.length > 0);
+  }
+
+  function loadActiveWorkout() {
+    const raw = localStorage.getItem(STORAGE_KEYS.activeWorkout);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.items)) return null;
+      const items = parsed.items
+        .map((item) => {
+          if (!item || typeof item !== "object" || !item.exercise) return null;
+          const sets = Number.parseInt(String(item.sets), 10);
+          const reps = Number.parseInt(String(item.reps), 10);
+          const completedSets = Number.parseInt(String(item.completedSets), 10);
+          if (Number.isNaN(sets) || Number.isNaN(reps) || Number.isNaN(completedSets)) return null;
+          return {
+            exercise: {
+              id: String(item.exercise.id || ""),
+              name: String(item.exercise.name || ""),
+              equipment: Array.isArray(item.exercise.equipment) ? item.exercise.equipment : [],
+              bodyAreas: Array.isArray(item.exercise.bodyAreas) ? item.exercise.bodyAreas : []
+            },
+            sets,
+            reps,
+            completedSets: Math.max(0, Math.min(sets, completedSets))
+          };
+        })
+        .filter(Boolean);
+      if (items.length === 0) return null;
+      return {
+        startedAt: String(parsed.startedAt || new Date().toISOString()),
+        items
+      };
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function persistActiveWorkout() {
+    if (!state.activeWorkout) {
+      localStorage.removeItem(STORAGE_KEYS.activeWorkout);
+      return;
+    }
+    localStorage.setItem(STORAGE_KEYS.activeWorkout, JSON.stringify(state.activeWorkout));
+  }
+
+  function renderHistory() {
+    elements.historyList.innerHTML = "";
+    if (state.workoutHistory.length === 0) {
+      elements.historyList.innerHTML = `<p class="muted">Ingen historik endnu.</p>`;
+      return;
+    }
+
+    state.workoutHistory.forEach((entry, index) => {
+      const card = document.createElement("article");
+      card.className = "workout-card";
+      const timeLabel = new Date(entry.createdAt).toLocaleString("da-DK");
+      const summary = entry.items
+        .map((item, i) => `${i + 1}. ${item.exercise.name} (${item.sets}x${item.reps})`)
+        .join("<br>");
+      card.innerHTML = `
+        <h3 class="exercise-name">Workout #${state.workoutHistory.length - index}</h3>
+        <p class="meta">${escapeHtml(timeLabel)}</p>
+        <p class="meta">${summary}</p>
+        <div class="workout-actions">
+          <button type="button" class="secondary small" data-history-action="load" data-history-index="${index}">Indlaes</button>
+          <button type="button" class="danger small" data-history-action="delete" data-history-index="${index}">Slet</button>
+        </div>
+      `;
+      elements.historyList.appendChild(card);
+    });
+
+    elements.historyList.querySelectorAll("[data-history-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const action = button.getAttribute("data-history-action");
+        const index = Number.parseInt(button.getAttribute("data-history-index") || "", 10);
+        if (Number.isNaN(index)) return;
+        if (action === "load") {
+          const entry = state.workoutHistory[index];
+          if (!entry) return;
+          state.generatedWorkout = entry.items.map((item) => ({
+            exercise: item.exercise,
+            sets: item.sets,
+            reps: item.reps,
+            locked: Boolean(item.locked)
+          }));
+          persistGeneratedWorkout();
+          switchTab("generator");
+          renderGeneratedWorkout();
+        } else if (action === "delete") {
+          state.workoutHistory.splice(index, 1);
+          localStorage.setItem(STORAGE_KEYS.workoutHistory, JSON.stringify(state.workoutHistory));
+          renderHistory();
+        }
+      });
+    });
   }
 
   function duplicateGeneratedWorkoutItem(index) {
@@ -663,5 +943,15 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function findExerciseByName(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return null;
+    return (
+      state.exercises.find((exercise) => exercise.name.toLowerCase() === normalized) ||
+      state.exercises.find((exercise) => exercise.name.toLowerCase().includes(normalized)) ||
+      null
+    );
   }
 })();
