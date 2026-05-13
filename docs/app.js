@@ -397,6 +397,49 @@
     renderHistory();
   }
 
+  function regenerateGeneratedWorkoutItem(index) {
+    const item = state.generatedWorkout[index];
+    if (!item) return;
+
+    onGeneratorSettingsChange();
+    const settings = state.settings.generator;
+    const excludedIds = new Set(
+      state.generatedWorkout
+        .filter((_entry, itemIndex) => itemIndex !== index)
+        .map((entry) => entry.exercise.id)
+    );
+    const pool = getReplacementPoolForItem(item, settings, excludedIds)
+      .filter((exercise) => exercise.id !== item.exercise.id);
+
+    if (pool.length === 0) return;
+    item.exercise = pool[randomInt(0, pool.length - 1)];
+    persistGeneratedWorkout();
+    renderGeneratedWorkout();
+  }
+
+  function getReplacementPoolForItem(item, settings, excludedIds) {
+    return state.exercises.filter((exercise) => {
+      if (excludedIds.has(exercise.id)) return false;
+
+      const matchesFavorites = !settings.favoritesOnly || state.favorites.has(exercise.id);
+      const matchesEquipment =
+        settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
+      const matchesBodyAreas =
+        settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
+      if (!matchesFavorites || !matchesEquipment || !matchesBodyAreas) return false;
+
+      const isWarmup = exercise.categories.includes("Warm-Up");
+      const isStretching = exercise.categories.includes("Stretching");
+      if (item.block === "Warm-Up") return isWarmup;
+      if (item.block === "Stretching") return isStretching;
+
+      const matchesCategories =
+        settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
+      const isMain = exercise.categories.includes("Main Workout") || exercise.categories.includes("Cardio");
+      return matchesCategories && isMain && !isWarmup && !isStretching;
+    });
+  }
+
   function renderGeneratedWorkout(message) {
     elements.generatedWorkout.innerHTML = "";
 
@@ -477,6 +520,7 @@
         }</p>
         <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))} • ${escapeHtml(item.exercise.categories.join(", "))}</p>
         <div class="workout-actions">
+          <button type="button" class="secondary small" data-edit-type="regenerate" data-index="${index}">Regenerer</button>
           <button type="button" class="secondary small" data-edit-type="duplicate" data-index="${index}">Dupliker</button>
           <button type="button" class="secondary small" data-edit-type="up" data-index="${index}">Op</button>
           <button type="button" class="secondary small" data-edit-type="down" data-index="${index}">Ned</button>
@@ -497,6 +541,10 @@
       if (action === "remove") {
         control.addEventListener("click", () => {
           removeGeneratedWorkoutItem(index);
+        });
+      } else if (action === "regenerate") {
+        control.addEventListener("click", () => {
+          regenerateGeneratedWorkoutItem(index);
         });
       } else if (action === "duplicate") {
         control.addEventListener("click", () => {
