@@ -350,6 +350,18 @@
         )
       : [];
 
+    const stretchItems = settings.stretching.enabled
+      ? generateSectionItems(
+          state.exercises.filter((exercise) => exercise.categories.includes("Stretching")),
+          settings.stretching.count,
+          1,
+          1,
+          settings.stretching.minSeconds,
+          settings.stretching.maxSeconds,
+          "Stretching"
+        )
+      : [];
+
     let freshItems = [];
     if (settings.mode === "time") {
       const lockedSeconds = totalWorkoutSeconds(lockedItems, settings);
@@ -369,18 +381,6 @@
         block: "Main"
       }));
     }
-
-    const stretchItems = settings.stretching.enabled
-      ? generateSectionItems(
-          state.exercises.filter((exercise) => exercise.categories.includes("Stretching")),
-          settings.stretching.count,
-          1,
-          1,
-          settings.stretching.minSeconds,
-          settings.stretching.maxSeconds,
-          "Stretching"
-        )
-      : [];
 
     state.generatedWorkout = [...warmupItems, ...lockedItems, ...freshItems, ...stretchItems];
     persistGeneratedWorkout();
