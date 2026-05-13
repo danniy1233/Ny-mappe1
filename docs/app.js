@@ -338,23 +338,6 @@
       return;
     }
 
-    let freshItems = [];
-    if (settings.mode === "time") {
-      const lockedSeconds = totalWorkoutSeconds(lockedItems, settings);
-      const targetSeconds = Math.max(60, settings.durationMinutes * 60 - lockedSeconds);
-      freshItems = generateWorkoutByTime(pool, settings, targetSeconds);
-    } else {
-      const remainingCount = Math.max(0, settings.count - lockedItems.length);
-      const selected = sampleUnique(pool, Math.min(remainingCount, pool.length));
-      freshItems = selected.map((exercise) => ({
-        exercise,
-        sets: randomInt(settings.minSets, settings.maxSets),
-        reps: randomInt(settings.minReps, settings.maxReps),
-        locked: false,
-        block: "Main"
-      }));
-    }
-
     const warmupItems = settings.warmup.enabled
       ? generateSectionItems(
           state.exercises.filter((exercise) => exercise.categories.includes("Warm-Up")),
@@ -366,6 +349,26 @@
           "Warm-Up"
         )
       : [];
+
+    let freshItems = [];
+    if (settings.mode === "time") {
+      const lockedSeconds = totalWorkoutSeconds(lockedItems, settings);
+      const warmupSeconds = totalWorkoutSeconds(warmupItems, settings);
+      const stretchingSeconds = totalWorkoutSeconds(stretchItems, settings);
+      const remainingMainSeconds =
+        settings.durationMinutes * 60 - lockedSeconds - warmupSeconds - stretchingSeconds;
+      freshItems = generateWorkoutByTime(pool, settings, Math.max(0, remainingMainSeconds));
+    } else {
+      const remainingCount = Math.max(0, settings.count - lockedItems.length);
+      const selected = sampleUnique(pool, Math.min(remainingCount, pool.length));
+      freshItems = selected.map((exercise) => ({
+        exercise,
+        sets: randomInt(settings.minSets, settings.maxSets),
+        reps: randomInt(settings.minReps, settings.maxReps),
+        locked: false,
+        block: "Main"
+      }));
+    }
 
     const stretchItems = settings.stretching.enabled
       ? generateSectionItems(
@@ -772,6 +775,7 @@
 
   function generateWorkoutByTime(pool, settings, targetSecondsOverride) {
     const targetSeconds = targetSecondsOverride || settings.durationMinutes * 60;
+    if (targetSeconds <= 0) return [];
     const shuffled = sampleUnique(pool, pool.length);
     const result = [];
     let accumulated = 0;
