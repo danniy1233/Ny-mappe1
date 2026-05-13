@@ -317,62 +317,121 @@
     const lockedItems = state.generatedWorkout.filter((item) => item.locked && item.block === "Main");
     const lockedIds = new Set(lockedItems.map((item) => item.exercise.id));
 
-    const pool = state.exercises.filter((exercise) => {
+    const matchesCommonGeneratorFilters = (exercise) => {
       if (lockedIds.has(exercise.id)) return false;
       const matchesFavorites = !settings.favoritesOnly || state.favorites.has(exercise.id);
       const matchesEquipment =
         settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
       const matchesBodyAreas =
         settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
+      return matchesFavorites && matchesEquipment && matchesBodyAreas;
+    };
+
+    const mainPool = state.exercises.filter((exercise) => {
+      if (!matchesCommonGeneratorFilters(exercise)) return false;
       const matchesCategories =
         settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
       const isMain = exercise.categories.includes("Main Workout") || exercise.categories.includes("Cardio");
       const isWarmOrStretch = exercise.categories.includes("Warm-Up") || exercise.categories.includes("Stretching");
-      return matchesFavorites && matchesEquipment && matchesBodyAreas && matchesCategories && isMain && !isWarmOrStretch;
+      return matchesCategories && isMain && !isWarmOrStretch;
     });
 
-    if (pool.length === 0 && lockedItems.length === 0) {
+    const warmupPool = state.exercises.filter(
+      (exercise) => matchesCommonGeneratorFilters(exercise) && exercise.categories.includes("Warm-Up")
+    );
+    const stretchPool = state.exercises.filter(
+      (exercise) => matchesCommonGeneratorFilters(exercise) && exercise.categories.includes("Stretching")
+    );
+
+    const hasAnyCandidate =
+      mainPool.length > 0 ||
+      lockedItems.length > 0 ||
+      (settings.warmup.enabled && warmupPool.length > 0) ||
+      (settings.stretching.enabled && stretchPool.length > 0);
+    if (!hasAnyCandidate) {
       state.generatedWorkout = [];
       localStorage.setItem(STORAGE_KEYS.generatedWorkout, JSON.stringify([]));
       renderGeneratedWorkout("Ingen ovelser matcher generator-filtrene.");
       return;
     }
 
-    const warmupItems = settings.warmup.enabled
-      ? generateSectionItems(
-          state.exercises.filter((exercise) => exercise.categories.includes("Warm-Up")),
-          settings.warmup.count,
-          settings.warmup.minSets,
-          settings.warmup.maxSets,
-          settings.warmup.minReps,
-          settings.warmup.maxReps,
-          "Warm-Up"
-        )
-      : [];
-
-    const stretchItems = settings.stretching.enabled
-      ? generateSectionItems(
-          state.exercises.filter((exercise) => exercise.categories.includes("Stretching")),
-          settings.stretching.count,
-          1,
-          1,
-          settings.stretching.minSeconds,
-          settings.stretching.maxSeconds,
-          "Stretching"
-        )
-      : [];
-
-    let freshItems = [];
     if (settings.mode === "time") {
+      const totalSeconds = settings.durationMinutes * 60;
       const lockedSeconds = totalWorkoutSeconds(lockedItems, settings);
-      const warmupSeconds = totalWorkoutSeconds(warmupItems, settings);
-      const stretchingSeconds = totalWorkoutSeconds(stretchItems, settings);
-      const remainingMainSeconds =
-        settings.durationMinutes * 60 - lockedSeconds - warmupSeconds - stretchingSeconds;
-      freshItems = generateWorkoutByTime(pool, settings, Math.max(0, remainingMainSeconds));
+
+      let mainWeight = 1;
+      let warmupWeight = 0;
+      let stretchWeight = 0;
+      if (settings.warmup.enabled && settings.stretching.enabled) {
+        warmupWeight = 0.2;
+        stretchWeight = 0.15;
+        mainWeight = 0.65;
+      } else if (settings.warmup.enabled) {
+        warmupWeight = 0.25;
+        mainWeight = 0.75;
+      } else if (settings.stretching.enabled) {
+        stretchWeight = 0.2;
+        mainWeight = 0.8;
+      }
+
+      const warmupBudget = Math.max(0, Math.round(totalSeconds * warmupWeight));
+      const stretchBudget = Math.max(0, Math.round(totalSeconds * stretchWeight));
+      const mainBudget = Math.max(0, Math.round(totalSeconds * mainWeight) - lockedSeconds);
+
+      const warmupItems = settings.warmup.enabled
+        ? generateSectionByTime(
+            warmupPool,
+            settings,
+            warmupBudget,
+            settings.warmup.minSets,
+            settings.warmup.maxSets,
+            settings.warmup.minReps,
+            settings.warmup.maxReps,
+            "Warm-Up"
+          )
+        : [];
+      const stretchItems = settings.stretching.enabled
+        ? generateSectionByTime(
+            stretchPool,
+            settings,
+            stretchBudget,
+            1,
+            1,
+            settings.stretching.minSeconds,
+            settings.stretching.maxSeconds,
+            "Stretching"
+          )
+        : [];
+      const freshItems = generateWorkoutByTime(mainPool, settings, mainBudget);
+
+      state.generatedWorkout = [...warmupItems, ...lockedItems, ...freshItems, ...stretchItems];
     } else {
+      const warmupItems = settings.warmup.enabled
+        ? generateSectionItems(
+            warmupPool,
+            settings.warmup.count,
+            settings.warmup.minSets,
+            settings.warmup.maxSets,
+            settings.warmup.minReps,
+            settings.warmup.maxReps,
+            "Warm-Up"
+          )
+        : [];
+      const stretchItems = settings.stretching.enabled
+        ? generateSectionItems(
+            stretchPool,
+            settings.stretching.count,
+            1,
+            1,
+            settings.stretching.minSeconds,
+            settings.stretching.maxSeconds,
+            "Stretching"
+          )
+        : [];
+
+      let freshItems = [];
       const remainingCount = Math.max(0, settings.count - lockedItems.length);
-      const selected = sampleUnique(pool, Math.min(remainingCount, pool.length));
+      const selected = sampleUnique(mainPool, Math.min(remainingCount, mainPool.length));
       freshItems = selected.map((exercise) => ({
         exercise,
         sets: randomInt(settings.minSets, settings.maxSets),
@@ -380,9 +439,9 @@
         locked: false,
         block: "Main"
       }));
-    }
 
-    state.generatedWorkout = [...warmupItems, ...lockedItems, ...freshItems, ...stretchItems];
+      state.generatedWorkout = [...warmupItems, ...lockedItems, ...freshItems, ...stretchItems];
+    }
     persistGeneratedWorkout();
     pushWorkoutHistoryEntry(state.generatedWorkout);
 
@@ -787,6 +846,27 @@
 
       if (accumulated + seconds <= targetSeconds || result.length === 0) {
         result.push({ exercise, sets, reps, locked: false, block: "Main" });
+        accumulated += seconds;
+      }
+      if (accumulated >= targetSeconds) break;
+    }
+
+    return result;
+  }
+
+  function generateSectionByTime(pool, settings, targetSeconds, minSets, maxSets, minReps, maxReps, block) {
+    if (!Array.isArray(pool) || pool.length === 0 || targetSeconds <= 0) return [];
+    const shuffled = sampleUnique(pool, pool.length);
+    const result = [];
+    let accumulated = 0;
+
+    for (const exercise of shuffled) {
+      const sets = randomInt(minSets, maxSets);
+      const reps = randomInt(minReps, maxReps);
+      const seconds = estimateExerciseSeconds(sets, reps, settings);
+
+      if (accumulated + seconds <= targetSeconds || result.length === 0) {
+        result.push({ exercise, sets, reps, locked: false, block });
         accumulated += seconds;
       }
       if (accumulated >= targetSeconds) break;
