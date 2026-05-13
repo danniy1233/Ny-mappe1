@@ -59,55 +59,18 @@
       <section id="generator-tab" class="tab-panel">
         <div class="panel">
           <h2>Indstillinger</h2>
-          <div class="form-grid">
-            <label class="field">
-              <span>Generator-mode</span>
-              <select id="mode-input">
-                <option value="count">Antal ovelser</option>
-                <option value="time">Tid (minutter)</option>
-              </select>
-            </label>
-            <label class="field mode-count">
-              <span>Antal ovelser</span>
-              <input id="count-input" type="number" min="1" max="20" value="6" />
-            </label>
-            <label class="field mode-time">
-              <span>Varighed (minutter)</span>
-              <input id="duration-input" type="number" min="5" max="180" value="45" />
-            </label>
-            <label class="field">
-              <span>Min sets</span>
-              <input id="min-sets-input" type="number" min="1" max="12" value="3" />
-            </label>
-            <label class="field">
-              <span>Max sets</span>
-              <input id="max-sets-input" type="number" min="1" max="12" value="4" />
-            </label>
-            <label class="field">
-              <span>Min reps</span>
-              <input id="min-reps-input" type="number" min="1" max="40" value="8" />
-            </label>
-            <label class="field">
-              <span>Max reps</span>
-              <input id="max-reps-input" type="number" min="1" max="40" value="12" />
-            </label>
-            <label class="field mode-time">
-              <span>Sekunder per rep</span>
-              <input id="rep-seconds-input" type="number" min="1" max="10" value="3" />
-            </label>
-            <label class="field mode-time">
-              <span>Pause mellem sets (sek)</span>
-              <input id="rest-seconds-input" type="number" min="0" max="300" value="75" />
-            </label>
+          <div class="generator-flow-labels">
+            <span>Warm-Up</span>
+            <span class="flow-arrow">→</span>
+            <span>Main</span>
+            <span class="flow-arrow">→</span>
+            <span>Stretching</span>
           </div>
 
-          <label class="checkbox-row">
-            <input id="generator-favorites-only" type="checkbox" />
-            <span>Kun favoritter</span>
-          </label>
-
-          <div class="panel soft-panel">
-            <h3>Warm-Up</h3>
+          <div class="generator-sections">
+            <div class="generator-section warmup-section">
+              <h3>1. Warm-Up</h3>
+              <p class="section-help">Aktivering og forberedelse af kroppen.</p>
             <label class="checkbox-row">
               <input id="include-warmup" type="checkbox" checked />
               <span>Inkluder warm-up</span>
@@ -134,10 +97,77 @@
                 <input id="warmup-max-reps" type="number" min="5" max="60" value="16" />
               </label>
             </div>
-          </div>
+            </div>
 
-          <div class="panel soft-panel">
-            <h3>Stretching</h3>
+            <div class="generator-section main-section">
+              <h3>2. Main Workout</h3>
+              <p class="section-help">Den primære del af din session.</p>
+              <div class="form-grid">
+                <label class="field">
+                  <span>Generator-mode</span>
+                  <select id="mode-input">
+                    <option value="count">Antal ovelser</option>
+                    <option value="time">Tid (minutter)</option>
+                  </select>
+                </label>
+                <label class="field mode-count">
+                  <span>Antal ovelser</span>
+                  <input id="count-input" type="number" min="1" max="20" value="6" />
+                </label>
+                <label class="field mode-time">
+                  <span>Varighed (minutter)</span>
+                  <input id="duration-input" type="number" min="5" max="180" value="45" />
+                </label>
+                <label class="field">
+                  <span>Min sets</span>
+                  <input id="min-sets-input" type="number" min="1" max="12" value="3" />
+                </label>
+                <label class="field">
+                  <span>Max sets</span>
+                  <input id="max-sets-input" type="number" min="1" max="12" value="4" />
+                </label>
+                <label class="field">
+                  <span>Min reps</span>
+                  <input id="min-reps-input" type="number" min="1" max="40" value="8" />
+                </label>
+                <label class="field">
+                  <span>Max reps</span>
+                  <input id="max-reps-input" type="number" min="1" max="40" value="12" />
+                </label>
+                <label class="field mode-time">
+                  <span>Sekunder per rep</span>
+                  <input id="rep-seconds-input" type="number" min="1" max="10" value="3" />
+                </label>
+                <label class="field mode-time">
+                  <span>Pause mellem sets (sek)</span>
+                  <input id="rest-seconds-input" type="number" min="0" max="300" value="75" />
+                </label>
+              </div>
+
+              <label class="checkbox-row">
+                <input id="generator-favorites-only" type="checkbox" />
+                <span>Kun favoritter</span>
+              </label>
+
+              <div class="filter-grid">
+                <div>
+                  <h3>Udstyr (valgfrit)</h3>
+                  <div id="generator-equipment-filters" class="chips"></div>
+                </div>
+                <div>
+                  <h3>Kropsomrader (valgfrit)</h3>
+                  <div id="generator-bodyarea-filters" class="chips"></div>
+                </div>
+                <div>
+                  <h3>Kategori (valgfrit)</h3>
+                  <div id="generator-category-filters" class="chips"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="generator-section stretch-section">
+              <h3>3. Stretching</h3>
+              <p class="section-help">Nedkøling og mobilitet efter workout.</p>
             <label class="checkbox-row">
               <input id="include-stretching" type="checkbox" checked />
               <span>Inkluder stretching</span>
@@ -157,20 +187,6 @@
               </label>
             </div>
           </div>
-
-          <div class="filter-grid">
-            <div>
-              <h3>Udstyr (valgfrit)</h3>
-              <div id="generator-equipment-filters" class="chips"></div>
-            </div>
-            <div>
-              <h3>Kropsomrader (valgfrit)</h3>
-              <div id="generator-bodyarea-filters" class="chips"></div>
-            </div>
-            <div>
-              <h3>Kategori (valgfrit)</h3>
-              <div id="generator-category-filters" class="chips"></div>
-            </div>
           </div>
 
           <button id="generate-button" class="primary">Generer random workout</button>
