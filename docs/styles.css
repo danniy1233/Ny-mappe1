@@ -194,6 +194,19 @@ select {
   font-size: 0.83rem;
 }
 
+.demo-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0b7285;
+  text-decoration: none;
+}
+
+.demo-link:hover {
+  text-decoration: underline;
+}
+
 .favorite-btn {
   border: none;
   background: transparent;

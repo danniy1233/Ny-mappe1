@@ -195,6 +195,7 @@
             ${state.favorites.has(exercise.id) ? "★" : "☆"}
           </button>
         </div>
+        <a class="demo-link" href="${escapeHtml(getDemoSearchUrl(exercise.name))}" target="_blank" rel="noopener noreferrer">Demo</a>
         <p class="meta">${escapeHtml(exercise.bodyAreas.join(", "))}</p>
         <p class="meta">${escapeHtml(exercise.equipment.join(", "))}</p>
       `;
@@ -342,6 +343,7 @@
           <input data-edit-type="lock" data-index="${index}" type="checkbox" ${item.locked ? "checked" : ""} />
           <span>Laas ovelse</span>
         </label>
+        <a class="demo-link" href="${escapeHtml(getDemoSearchUrl(item.exercise.name))}" target="_blank" rel="noopener noreferrer">Demo</a>
         <label class="field">
           <span>Ovelse (sogbar)</span>
           <input data-edit-type="exercise-search" data-index="${index}" type="search" list="${datalistId}" value="${escapeHtml(item.exercise.name)}" placeholder="Sog efter ovelse..." />
@@ -766,6 +768,7 @@
 
       card.innerHTML = `
         <h3 class="exercise-name">${exerciseIndex + 1}. ${escapeHtml(item.exercise.name)}</h3>
+        <a class="demo-link" href="${escapeHtml(getDemoSearchUrl(item.exercise.name))}" target="_blank" rel="noopener noreferrer">Demo</a>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
         <div class="set-track">${pills}</div>
         <p class="set-help">Swipe pa et set (eller tryk) for at markere/afmarkere.</p>
@@ -1039,5 +1042,10 @@
       state.exercises.find((exercise) => exercise.name.toLowerCase().includes(normalized)) ||
       null
     );
+  }
+
+  function getDemoSearchUrl(exerciseName) {
+    const query = `${exerciseName} exercise tutorial`;
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
   }
 })();
