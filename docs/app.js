@@ -48,6 +48,16 @@
     repSecondsInput: document.getElementById("rep-seconds-input"),
     restSecondsInput: document.getElementById("rest-seconds-input"),
     generatorFavoritesOnly: document.getElementById("generator-favorites-only"),
+    includeWarmup: document.getElementById("include-warmup"),
+    warmupCount: document.getElementById("warmup-count"),
+    warmupMinSets: document.getElementById("warmup-min-sets"),
+    warmupMaxSets: document.getElementById("warmup-max-sets"),
+    warmupMinReps: document.getElementById("warmup-min-reps"),
+    warmupMaxReps: document.getElementById("warmup-max-reps"),
+    includeStretching: document.getElementById("include-stretching"),
+    stretchCount: document.getElementById("stretch-count"),
+    stretchMinSeconds: document.getElementById("stretch-min-seconds"),
+    stretchMaxSeconds: document.getElementById("stretch-max-seconds"),
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
     generatorCategoryFilters: document.getElementById("generator-category-filters"),
@@ -106,6 +116,16 @@
     elements.repSecondsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.restSecondsInput.addEventListener("change", onGeneratorSettingsChange);
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
+    elements.includeWarmup.addEventListener("change", onGeneratorSettingsChange);
+    elements.warmupCount.addEventListener("change", onGeneratorSettingsChange);
+    elements.warmupMinSets.addEventListener("change", onGeneratorSettingsChange);
+    elements.warmupMaxSets.addEventListener("change", onGeneratorSettingsChange);
+    elements.warmupMinReps.addEventListener("change", onGeneratorSettingsChange);
+    elements.warmupMaxReps.addEventListener("change", onGeneratorSettingsChange);
+    elements.includeStretching.addEventListener("change", onGeneratorSettingsChange);
+    elements.stretchCount.addEventListener("change", onGeneratorSettingsChange);
+    elements.stretchMinSeconds.addEventListener("change", onGeneratorSettingsChange);
+    elements.stretchMaxSeconds.addEventListener("change", onGeneratorSettingsChange);
     elements.generateButton.addEventListener("click", generateWorkout);
     elements.clearHistory.addEventListener("click", clearAllHistory);
     elements.startFromGenerated.addEventListener("click", startFromGeneratedWorkout);
@@ -259,12 +279,31 @@
     state.settings.generator.repSeconds = clampInt(elements.repSecondsInput.value, 1, 10, 3);
     state.settings.generator.restSeconds = clampInt(elements.restSecondsInput.value, 0, 300, 75);
     state.settings.generator.favoritesOnly = elements.generatorFavoritesOnly.checked;
+    state.settings.generator.warmup.enabled = elements.includeWarmup.checked;
+    state.settings.generator.warmup.count = clampInt(elements.warmupCount.value, 0, 10, 3);
+    state.settings.generator.warmup.minSets = clampInt(elements.warmupMinSets.value, 1, 5, 1);
+    state.settings.generator.warmup.maxSets = clampInt(elements.warmupMaxSets.value, 1, 6, 2);
+    state.settings.generator.warmup.minReps = clampInt(elements.warmupMinReps.value, 5, 40, 10);
+    state.settings.generator.warmup.maxReps = clampInt(elements.warmupMaxReps.value, 5, 60, 16);
+    state.settings.generator.stretching.enabled = elements.includeStretching.checked;
+    state.settings.generator.stretching.count = clampInt(elements.stretchCount.value, 0, 10, 3);
+    state.settings.generator.stretching.minSeconds = clampInt(elements.stretchMinSeconds.value, 10, 180, 25);
+    state.settings.generator.stretching.maxSeconds = clampInt(elements.stretchMaxSeconds.value, 10, 240, 45);
 
     if (state.settings.generator.maxSets < state.settings.generator.minSets) {
       state.settings.generator.maxSets = state.settings.generator.minSets;
     }
     if (state.settings.generator.maxReps < state.settings.generator.minReps) {
       state.settings.generator.maxReps = state.settings.generator.minReps;
+    }
+    if (state.settings.generator.warmup.maxSets < state.settings.generator.warmup.minSets) {
+      state.settings.generator.warmup.maxSets = state.settings.generator.warmup.minSets;
+    }
+    if (state.settings.generator.warmup.maxReps < state.settings.generator.warmup.minReps) {
+      state.settings.generator.warmup.maxReps = state.settings.generator.warmup.minReps;
+    }
+    if (state.settings.generator.stretching.maxSeconds < state.settings.generator.stretching.minSeconds) {
+      state.settings.generator.stretching.maxSeconds = state.settings.generator.stretching.minSeconds;
     }
 
     updateGeneratorModeVisibility();
@@ -275,7 +314,7 @@
   function generateWorkout() {
     onGeneratorSettingsChange();
     const settings = state.settings.generator;
-    const lockedItems = state.generatedWorkout.filter((item) => item.locked);
+    const lockedItems = state.generatedWorkout.filter((item) => item.locked && item.block === "Main");
     const lockedIds = new Set(lockedItems.map((item) => item.exercise.id));
 
     const pool = state.exercises.filter((exercise) => {
@@ -287,7 +326,9 @@
         settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
       const matchesCategories =
         settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
-      return matchesFavorites && matchesEquipment && matchesBodyAreas && matchesCategories;
+      const isMain = exercise.categories.includes("Main Workout") || exercise.categories.includes("Cardio");
+      const isWarmOrStretch = exercise.categories.includes("Warm-Up") || exercise.categories.includes("Stretching");
+      return matchesFavorites && matchesEquipment && matchesBodyAreas && matchesCategories && isMain && !isWarmOrStretch;
     });
 
     if (pool.length === 0 && lockedItems.length === 0) {
@@ -309,10 +350,36 @@
         exercise,
         sets: randomInt(settings.minSets, settings.maxSets),
         reps: randomInt(settings.minReps, settings.maxReps),
-        locked: false
+        locked: false,
+        block: "Main"
       }));
     }
-    state.generatedWorkout = [...lockedItems, ...freshItems];
+
+    const warmupItems = settings.warmup.enabled
+      ? generateSectionItems(
+          state.exercises.filter((exercise) => exercise.categories.includes("Warm-Up")),
+          settings.warmup.count,
+          settings.warmup.minSets,
+          settings.warmup.maxSets,
+          settings.warmup.minReps,
+          settings.warmup.maxReps,
+          "Warm-Up"
+        )
+      : [];
+
+    const stretchItems = settings.stretching.enabled
+      ? generateSectionItems(
+          state.exercises.filter((exercise) => exercise.categories.includes("Stretching")),
+          settings.stretching.count,
+          1,
+          1,
+          settings.stretching.minSeconds,
+          settings.stretching.maxSeconds,
+          "Stretching"
+        )
+      : [];
+
+    state.generatedWorkout = [...warmupItems, ...lockedItems, ...freshItems, ...stretchItems];
     persistGeneratedWorkout();
     pushWorkoutHistoryEntry(state.generatedWorkout);
 
@@ -357,7 +424,15 @@
     datalist.innerHTML = datalistOptions;
     elements.generatedWorkout.appendChild(datalist);
 
+    let lastBlock = "";
     state.generatedWorkout.forEach((item, index) => {
+      if (item.block && item.block !== lastBlock) {
+        const sectionTitle = document.createElement("h3");
+        sectionTitle.className = "exercise-name";
+        sectionTitle.textContent = item.block;
+        elements.generatedWorkout.appendChild(sectionTitle);
+        lastBlock = item.block;
+      }
       const card = document.createElement("article");
       card.className = "workout-card";
 
@@ -382,7 +457,11 @@
             <input data-edit-type="reps" data-index="${index}" type="number" min="1" max="40" value="${item.reps}" />
           </label>
         </div>
-        <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
+        <p class="workout-line">${
+          item.block === "Stretching"
+            ? `${item.sets} set x ${item.reps} sek hold`
+            : `${item.sets} sets x ${item.reps} reps`
+        }</p>
         <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))} • ${escapeHtml(item.exercise.categories.join(", "))}</p>
         <div class="workout-actions">
           <button type="button" class="secondary small" data-edit-type="duplicate" data-index="${index}">Dupliker</button>
@@ -448,6 +527,16 @@
     elements.repSecondsInput.value = String(generator.repSeconds || 3);
     elements.restSecondsInput.value = String(generator.restSeconds || 75);
     elements.generatorFavoritesOnly.checked = generator.favoritesOnly;
+    elements.includeWarmup.checked = generator.warmup?.enabled ?? true;
+    elements.warmupCount.value = String(generator.warmup?.count ?? 3);
+    elements.warmupMinSets.value = String(generator.warmup?.minSets ?? 1);
+    elements.warmupMaxSets.value = String(generator.warmup?.maxSets ?? 2);
+    elements.warmupMinReps.value = String(generator.warmup?.minReps ?? 10);
+    elements.warmupMaxReps.value = String(generator.warmup?.maxReps ?? 16);
+    elements.includeStretching.checked = generator.stretching?.enabled ?? true;
+    elements.stretchCount.value = String(generator.stretching?.count ?? 3);
+    elements.stretchMinSeconds.value = String(generator.stretching?.minSeconds ?? 25);
+    elements.stretchMaxSeconds.value = String(generator.stretching?.maxSeconds ?? 45);
   }
 
   function updateGeneratorModeVisibility() {
@@ -482,7 +571,21 @@
         favoritesOnly: false,
         equipment: new Set(),
         bodyAreas: new Set(),
-        categories: new Set()
+        categories: new Set(),
+        warmup: {
+          enabled: true,
+          count: 3,
+          minSets: 1,
+          maxSets: 2,
+          minReps: 10,
+          maxReps: 16
+        },
+        stretching: {
+          enabled: true,
+          count: 3,
+          minSeconds: 25,
+          maxSeconds: 45
+        }
       }
     };
 
@@ -512,7 +615,21 @@
           favoritesOnly: Boolean(parsed?.generator?.favoritesOnly),
           equipment: new Set(Array.isArray(parsed?.generator?.equipment) ? parsed.generator.equipment : []),
           bodyAreas: new Set(Array.isArray(parsed?.generator?.bodyAreas) ? parsed.generator.bodyAreas : []),
-          categories: new Set(Array.isArray(parsed?.generator?.categories) ? parsed.generator.categories : [])
+          categories: new Set(Array.isArray(parsed?.generator?.categories) ? parsed.generator.categories : []),
+          warmup: {
+            enabled: parsed?.generator?.warmup?.enabled !== false,
+            count: clampInt(parsed?.generator?.warmup?.count, 0, 10, 3),
+            minSets: clampInt(parsed?.generator?.warmup?.minSets, 1, 5, 1),
+            maxSets: clampInt(parsed?.generator?.warmup?.maxSets, 1, 6, 2),
+            minReps: clampInt(parsed?.generator?.warmup?.minReps, 5, 40, 10),
+            maxReps: clampInt(parsed?.generator?.warmup?.maxReps, 5, 60, 16)
+          },
+          stretching: {
+            enabled: parsed?.generator?.stretching?.enabled !== false,
+            count: clampInt(parsed?.generator?.stretching?.count, 0, 10, 3),
+            minSeconds: clampInt(parsed?.generator?.stretching?.minSeconds, 10, 180, 25),
+            maxSeconds: clampInt(parsed?.generator?.stretching?.maxSeconds, 10, 240, 45)
+          }
         }
       };
     } catch (_error) {
@@ -542,7 +659,21 @@
         favoritesOnly: state.settings.generator.favoritesOnly,
         equipment: Array.from(state.settings.generator.equipment),
         bodyAreas: Array.from(state.settings.generator.bodyAreas),
-        categories: Array.from(state.settings.generator.categories)
+        categories: Array.from(state.settings.generator.categories),
+        warmup: {
+          enabled: state.settings.generator.warmup.enabled,
+          count: state.settings.generator.warmup.count,
+          minSets: state.settings.generator.warmup.minSets,
+          maxSets: state.settings.generator.warmup.maxSets,
+          minReps: state.settings.generator.warmup.minReps,
+          maxReps: state.settings.generator.warmup.maxReps
+        },
+        stretching: {
+          enabled: state.settings.generator.stretching.enabled,
+          count: state.settings.generator.stretching.count,
+          minSeconds: state.settings.generator.stretching.minSeconds,
+          maxSeconds: state.settings.generator.stretching.maxSeconds
+        }
       }
     };
     localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(serializable));
@@ -582,7 +713,8 @@
           },
           sets,
           reps,
-          locked: Boolean(item.locked)
+          locked: Boolean(item.locked),
+          block: typeof item.block === "string" ? item.block : "Main"
         };
       })
       .filter(Boolean);
@@ -616,6 +748,18 @@
     return copy.slice(0, count);
   }
 
+  function generateSectionItems(pool, count, minSets, maxSets, minReps, maxReps, block) {
+    if (!Array.isArray(pool) || pool.length === 0 || count <= 0) return [];
+    const selected = sampleUnique(pool, Math.min(count, pool.length));
+    return selected.map((exercise) => ({
+      exercise,
+      sets: randomInt(minSets, maxSets),
+      reps: randomInt(minReps, maxReps),
+      locked: false,
+      block
+    }));
+  }
+
   function estimateExerciseSeconds(sets, reps, settings) {
     const workSeconds = sets * reps * settings.repSeconds;
     const restSeconds = Math.max(0, sets - 1) * settings.restSeconds;
@@ -638,7 +782,7 @@
       const seconds = estimateExerciseSeconds(sets, reps, settings);
 
       if (accumulated + seconds <= targetSeconds || result.length === 0) {
-        result.push({ exercise, sets, reps, locked: false });
+        result.push({ exercise, sets, reps, locked: false, block: "Main" });
         accumulated += seconds;
       }
       if (accumulated >= targetSeconds) break;
@@ -689,7 +833,8 @@
       exercise: candidate,
       sets: clampInt(state.settings.generator.minSets, 1, 12, 3),
       reps: clampInt(state.settings.generator.minReps, 1, 40, 8),
-      locked: false
+      locked: false,
+      block: "Main"
     });
     persistGeneratedWorkout();
     renderGeneratedWorkout();
@@ -704,7 +849,8 @@
         exercise: item.exercise,
         sets: item.sets,
         reps: item.reps,
-        locked: Boolean(item.locked)
+        locked: Boolean(item.locked),
+        block: typeof item.block === "string" ? item.block : "Main"
       }))
     };
     state.workoutHistory.unshift(entry);
@@ -735,7 +881,8 @@
       exercise: item.exercise,
       sets: item.sets,
       reps: item.reps,
-      locked: false
+      locked: false,
+      block: "Main"
     }));
     pushWorkoutHistoryEntry(completedPlan);
     state.activeWorkout = null;
@@ -907,7 +1054,8 @@
                 },
                 sets,
                 reps,
-                locked: Boolean(item.locked)
+                locked: Boolean(item.locked),
+                block: typeof item.block === "string" ? item.block : "Main"
               };
             })
             .filter(Boolean)
@@ -1002,7 +1150,8 @@
             exercise: item.exercise,
             sets: item.sets,
             reps: item.reps,
-            locked: Boolean(item.locked)
+            locked: Boolean(item.locked),
+            block: typeof item.block === "string" ? item.block : "Main"
           }));
           persistGeneratedWorkout();
           switchTab("generator");
@@ -1031,7 +1180,8 @@
       exercise: original.exercise,
       sets: original.sets,
       reps: original.reps,
-      locked: false
+      locked: false,
+      block: original.block || "Main"
     });
     persistGeneratedWorkout();
     renderGeneratedWorkout();
