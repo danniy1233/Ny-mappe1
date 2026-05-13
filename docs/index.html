@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="da">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fitness Randomizer</title>
+    <meta name="description" content="Fitness app med ovelsesbibliotek, favoritter og random workouts." />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Fitness Randomizer</h1>
+      <p>100% lokal lagring i din browser</p>
+    </header>
+
+    <main class="app">
+      <nav class="tabs">
+        <button class="tab-button active" data-tab="library">Ovelsesbibliotek</button>
+        <button class="tab-button" data-tab="generator">Workout-generator</button>
+      </nav>
+
+      <section id="library-tab" class="tab-panel active">
+        <div class="panel">
+          <h2>Filtre</h2>
+          <label class="field">
+            <span>Sog</span>
+            <input id="search-input" type="search" placeholder="Sog efter ovelse..." />
+          </label>
+
+          <label class="checkbox-row">
+            <input id="library-favorites-only" type="checkbox" />
+            <span>Kun favoritter</span>
+          </label>
+
+          <div class="filter-grid">
+            <div>
+              <h3>Udstyr</h3>
+              <div id="library-equipment-filters" class="chips"></div>
+            </div>
+            <div>
+              <h3>Kropsomrader</h3>
+              <div id="library-bodyarea-filters" class="chips"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Ovelser (<span id="exercise-count">0</span>)</h2>
+          <div id="exercise-list" class="exercise-list"></div>
+        </div>
+      </section>
+
+      <section id="generator-tab" class="tab-panel">
+        <div class="panel">
+          <h2>Indstillinger</h2>
+          <div class="form-grid">
+            <label class="field">
+              <span>Antal ovelser</span>
+              <input id="count-input" type="number" min="1" max="20" value="6" />
+            </label>
+            <label class="field">
+              <span>Min sets</span>
+              <input id="min-sets-input" type="number" min="1" max="12" value="3" />
+            </label>
+            <label class="field">
+              <span>Max sets</span>
+              <input id="max-sets-input" type="number" min="1" max="12" value="4" />
+            </label>
+            <label class="field">
+              <span>Min reps</span>
+              <input id="min-reps-input" type="number" min="1" max="40" value="8" />
+            </label>
+            <label class="field">
+              <span>Max reps</span>
+              <input id="max-reps-input" type="number" min="1" max="40" value="12" />
+            </label>
+          </div>
+
+          <label class="checkbox-row">
+            <input id="generator-favorites-only" type="checkbox" />
+            <span>Kun favoritter</span>
+          </label>
+
+          <div class="filter-grid">
+            <div>
+              <h3>Udstyr (valgfrit)</h3>
+              <div id="generator-equipment-filters" class="chips"></div>
+            </div>
+            <div>
+              <h3>Kropsomrader (valgfrit)</h3>
+              <div id="generator-bodyarea-filters" class="chips"></div>
+            </div>
+          </div>
+
+          <button id="generate-button" class="primary">Generer random workout</button>
+        </div>
+
+        <div class="panel">
+          <h2>Seneste workout</h2>
+          <div id="generated-workout" class="workout-list">
+            <p class="muted">Generer en workout for at se resultater.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Historik (lokalt)</h2>
+          <div id="workout-history" class="history-list">
+            <p class="muted">Ingen historik endnu.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./exercises.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
