@@ -286,24 +286,28 @@ select {
   box-shadow: 0 0 0 2px rgba(95, 168, 211, 0.12);
 }
 
-.set-track {
-  display: flex;
-  flex-wrap: wrap;
+.set-list {
+  display: grid;
   gap: 8px;
   margin-top: 8px;
 }
 
-.set-pill {
+.set-row {
+  width: 100%;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 0.8rem;
+  border-radius: 10px;
   background: #fff;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   user-select: none;
   touch-action: pan-y;
 }
 
-.set-pill.done {
+.set-row.done {
   background: #d9f3e5;
   border-color: #7ac9a2;
   color: #145c3c;
@@ -315,12 +319,6 @@ select {
   color: var(--muted);
 }
 
-.timer-display {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  margin: 4px 0 8px;
-}
 
 .workout-line {
   margin: 4px 0 0;
