@@ -871,6 +871,10 @@
 
   function removeGeneratedWorkoutItem(index) {
     if (index < 0 || index >= state.generatedWorkout.length) return;
+    const item = state.generatedWorkout[index];
+    const exerciseName = item?.exercise?.name || "denne ovelse";
+    const confirmed = window.confirm(`Er du sikker pa, at du vil fjerne ${exerciseName}?`);
+    if (!confirmed) return;
     state.generatedWorkout.splice(index, 1);
     persistGeneratedWorkout();
     renderGeneratedWorkout();
