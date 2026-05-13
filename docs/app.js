@@ -2,7 +2,8 @@
   const STORAGE_KEYS = {
     favorites: "fitness_randomizer_favorites_v1",
     settings: "fitness_randomizer_settings_v1",
-    history: "fitness_randomizer_history_v1"
+    history: "fitness_randomizer_history_v1",
+    imageCache: "fitness_randomizer_image_cache_v1"
   };
 
   const exercises = EXERCISES.map((exercise, index) => ({
@@ -15,7 +16,9 @@
     favorites: new Set(loadArray(STORAGE_KEYS.favorites)),
     settings: loadSettings(),
     history: loadArray(STORAGE_KEYS.history),
-    generatedWorkout: []
+    generatedWorkout: [],
+    imageCache: loadObject(STORAGE_KEYS.imageCache),
+    pendingImageLookups: new Set()
   };
 
   const elements = {
@@ -167,7 +170,9 @@
     filtered.forEach((exercise) => {
       const card = document.createElement("article");
       card.className = "exercise-card";
+      const imageUrl = getImageForExercise(exercise);
       card.innerHTML = `
+        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(exercise.name)}" data-exercise-image="${exercise.id}" loading="lazy" />
         <div class="exercise-top">
           <h3 class="exercise-name">${escapeHtml(exercise.name)}</h3>
           <button class="favorite-btn ${state.favorites.has(exercise.id) ? "active" : ""}" data-id="${exercise.id}" aria-label="Toggle favorit">
@@ -178,6 +183,7 @@
         <p class="meta">${escapeHtml(exercise.equipment.join(", "))}</p>
       `;
       elements.exerciseList.appendChild(card);
+      maybeLookupExerciseImage(exercise);
     });
 
     elements.exerciseList.querySelectorAll(".favorite-btn").forEach((button) => {
@@ -282,12 +288,15 @@
     state.generatedWorkout.forEach((item, index) => {
       const card = document.createElement("article");
       card.className = "workout-card";
+      const imageUrl = getImageForExercise(item.exercise);
       card.innerHTML = `
+        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.exercise.name)}" data-exercise-image="${item.exercise.id}" loading="lazy" />
         <h3 class="exercise-name">${index + 1}. ${escapeHtml(item.exercise.name)}</h3>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
         <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))}</p>
       `;
       elements.generatedWorkout.appendChild(card);
+      maybeLookupExerciseImage(item.exercise);
     });
   }
 
@@ -413,6 +422,84 @@
     } catch (_error) {
       return [];
     }
+  }
+
+  function loadObject(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function getImageForExercise(exercise) {
+    return state.imageCache[exercise.id] || placeholderImage(exercise.name);
+  }
+
+  function placeholderImage(name) {
+    const initials = name
+      .split(" ")
+      .map((part) => part[0])
+      .filter(Boolean)
+      .slice(0, 3)
+      .join("")
+      .toUpperCase();
+    const svg = `
+      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 360'>
+        <defs>
+          <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+            <stop offset='0%' stop-color='#0b7285' />
+            <stop offset='100%' stop-color='#5fa8d3' />
+          </linearGradient>
+        </defs>
+        <rect width='640' height='360' fill='url(#bg)' />
+        <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle' font-family='Arial, sans-serif' font-size='96' fill='white' opacity='0.95'>${initials}</text>
+      </svg>
+    `.trim();
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
+
+  function maybeLookupExerciseImage(exercise) {
+    if (state.imageCache[exercise.id] || state.pendingImageLookups.has(exercise.id)) {
+      return;
+    }
+
+    state.pendingImageLookups.add(exercise.id);
+    lookupWikimediaExerciseImage(exercise)
+      .then((url) => {
+        if (!url) return;
+        state.imageCache[exercise.id] = url;
+        localStorage.setItem(STORAGE_KEYS.imageCache, JSON.stringify(state.imageCache));
+        updateExerciseImages(exercise.id, url);
+      })
+      .catch(() => {})
+      .finally(() => {
+        state.pendingImageLookups.delete(exercise.id);
+      });
+  }
+
+  async function lookupWikimediaExerciseImage(exercise) {
+    const query = `${exercise.name} exercise`;
+    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*`;
+    const response = await fetch(apiUrl);
+    if (!response.ok) return null;
+    const data = await response.json();
+    const pages = data?.query?.pages;
+    if (!pages) return null;
+    const firstPage = Object.values(pages)[0];
+    const imageInfo = firstPage?.imageinfo?.[0];
+    if (!imageInfo) return null;
+    return imageInfo.thumburl || imageInfo.url || null;
+  }
+
+  function updateExerciseImages(exerciseId, url) {
+    const targets = document.querySelectorAll(`[data-exercise-image="${exerciseId}"]`);
+    targets.forEach((img) => {
+      img.setAttribute("src", url);
+    });
   }
 
   function toggleSetValue(set, value) {

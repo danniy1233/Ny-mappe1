@@ -168,6 +168,16 @@ input[type="number"] {
   background: #fff;
 }
 
+.exercise-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  margin-bottom: 8px;
+  background: #e6eef4;
+}
+
 .exercise-top {
   display: flex;
   justify-content: space-between;
