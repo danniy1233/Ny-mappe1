@@ -50,14 +50,10 @@
     generatorFavoritesOnly: document.getElementById("generator-favorites-only"),
     includeWarmup: document.getElementById("include-warmup"),
     warmupCount: document.getElementById("warmup-count"),
-    warmupMinSets: document.getElementById("warmup-min-sets"),
-    warmupMaxSets: document.getElementById("warmup-max-sets"),
-    warmupMinReps: document.getElementById("warmup-min-reps"),
-    warmupMaxReps: document.getElementById("warmup-max-reps"),
+    warmupDurationMinutes: document.getElementById("warmup-duration-minutes"),
     includeStretching: document.getElementById("include-stretching"),
     stretchCount: document.getElementById("stretch-count"),
-    stretchMinSeconds: document.getElementById("stretch-min-seconds"),
-    stretchMaxSeconds: document.getElementById("stretch-max-seconds"),
+    stretchDurationMinutes: document.getElementById("stretch-duration-minutes"),
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
     generatorCategoryFilters: document.getElementById("generator-category-filters"),
@@ -118,14 +114,10 @@
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
     elements.includeWarmup.addEventListener("change", onGeneratorSettingsChange);
     elements.warmupCount.addEventListener("change", onGeneratorSettingsChange);
-    elements.warmupMinSets.addEventListener("change", onGeneratorSettingsChange);
-    elements.warmupMaxSets.addEventListener("change", onGeneratorSettingsChange);
-    elements.warmupMinReps.addEventListener("change", onGeneratorSettingsChange);
-    elements.warmupMaxReps.addEventListener("change", onGeneratorSettingsChange);
+    elements.warmupDurationMinutes.addEventListener("change", onGeneratorSettingsChange);
     elements.includeStretching.addEventListener("change", onGeneratorSettingsChange);
     elements.stretchCount.addEventListener("change", onGeneratorSettingsChange);
-    elements.stretchMinSeconds.addEventListener("change", onGeneratorSettingsChange);
-    elements.stretchMaxSeconds.addEventListener("change", onGeneratorSettingsChange);
+    elements.stretchDurationMinutes.addEventListener("change", onGeneratorSettingsChange);
     elements.generateButton.addEventListener("click", generateWorkout);
     elements.clearHistory.addEventListener("click", clearAllHistory);
     elements.startFromGenerated.addEventListener("click", startFromGeneratedWorkout);
@@ -281,14 +273,10 @@
     state.settings.generator.favoritesOnly = elements.generatorFavoritesOnly.checked;
     state.settings.generator.warmup.enabled = elements.includeWarmup.checked;
     state.settings.generator.warmup.count = clampInt(elements.warmupCount.value, 0, 10, 3);
-    state.settings.generator.warmup.minSets = clampInt(elements.warmupMinSets.value, 1, 5, 1);
-    state.settings.generator.warmup.maxSets = clampInt(elements.warmupMaxSets.value, 1, 6, 2);
-    state.settings.generator.warmup.minReps = clampInt(elements.warmupMinReps.value, 5, 40, 10);
-    state.settings.generator.warmup.maxReps = clampInt(elements.warmupMaxReps.value, 5, 60, 16);
+    state.settings.generator.warmup.durationMinutes = clampInt(elements.warmupDurationMinutes.value, 1, 60, 8);
     state.settings.generator.stretching.enabled = elements.includeStretching.checked;
     state.settings.generator.stretching.count = clampInt(elements.stretchCount.value, 0, 10, 3);
-    state.settings.generator.stretching.minSeconds = clampInt(elements.stretchMinSeconds.value, 10, 180, 25);
-    state.settings.generator.stretching.maxSeconds = clampInt(elements.stretchMaxSeconds.value, 10, 240, 45);
+    state.settings.generator.stretching.durationMinutes = clampInt(elements.stretchDurationMinutes.value, 1, 60, 6);
 
     if (state.settings.generator.maxSets < state.settings.generator.minSets) {
       state.settings.generator.maxSets = state.settings.generator.minSets;
@@ -296,16 +284,6 @@
     if (state.settings.generator.maxReps < state.settings.generator.minReps) {
       state.settings.generator.maxReps = state.settings.generator.minReps;
     }
-    if (state.settings.generator.warmup.maxSets < state.settings.generator.warmup.minSets) {
-      state.settings.generator.warmup.maxSets = state.settings.generator.warmup.minSets;
-    }
-    if (state.settings.generator.warmup.maxReps < state.settings.generator.warmup.minReps) {
-      state.settings.generator.warmup.maxReps = state.settings.generator.warmup.minReps;
-    }
-    if (state.settings.generator.stretching.maxSeconds < state.settings.generator.stretching.minSeconds) {
-      state.settings.generator.stretching.maxSeconds = state.settings.generator.stretching.minSeconds;
-    }
-
     updateGeneratorModeVisibility();
     hydrateInputsFromSettings();
     persistSettings();
@@ -358,47 +336,23 @@
     if (settings.mode === "time") {
       const totalSeconds = settings.durationMinutes * 60;
       const lockedSeconds = totalWorkoutSeconds(lockedItems, settings);
-
-      let mainWeight = 1;
-      let warmupWeight = 0;
-      let stretchWeight = 0;
-      if (settings.warmup.enabled && settings.stretching.enabled) {
-        warmupWeight = 0.2;
-        stretchWeight = 0.15;
-        mainWeight = 0.65;
-      } else if (settings.warmup.enabled) {
-        warmupWeight = 0.25;
-        mainWeight = 0.75;
-      } else if (settings.stretching.enabled) {
-        stretchWeight = 0.2;
-        mainWeight = 0.8;
-      }
-
-      const warmupBudget = Math.max(0, Math.round(totalSeconds * warmupWeight));
-      const stretchBudget = Math.max(0, Math.round(totalSeconds * stretchWeight));
-      const mainBudget = Math.max(0, Math.round(totalSeconds * mainWeight) - lockedSeconds);
+      const warmupBudget = settings.warmup.enabled ? settings.warmup.durationMinutes * 60 : 0;
+      const stretchBudget = settings.stretching.enabled ? settings.stretching.durationMinutes * 60 : 0;
+      const mainBudget = Math.max(0, totalSeconds - warmupBudget - stretchBudget - lockedSeconds);
 
       const warmupItems = settings.warmup.enabled
-        ? generateSectionByTime(
+        ? generateTimedSectionItems(
             warmupPool,
-            settings,
+            settings.warmup.count,
             warmupBudget,
-            settings.warmup.minSets,
-            settings.warmup.maxSets,
-            settings.warmup.minReps,
-            settings.warmup.maxReps,
             "Warm-Up"
           )
         : [];
       const stretchItems = settings.stretching.enabled
-        ? generateSectionByTime(
+        ? generateTimedSectionItems(
             stretchPool,
-            settings,
+            settings.stretching.count,
             stretchBudget,
-            1,
-            1,
-            settings.stretching.minSeconds,
-            settings.stretching.maxSeconds,
             "Stretching"
           )
         : [];
@@ -407,24 +361,18 @@
       state.generatedWorkout = [...warmupItems, ...lockedItems, ...freshItems, ...stretchItems];
     } else {
       const warmupItems = settings.warmup.enabled
-        ? generateSectionItems(
+        ? generateTimedSectionItems(
             warmupPool,
             settings.warmup.count,
-            settings.warmup.minSets,
-            settings.warmup.maxSets,
-            settings.warmup.minReps,
-            settings.warmup.maxReps,
+            settings.warmup.durationMinutes * 60,
             "Warm-Up"
           )
         : [];
       const stretchItems = settings.stretching.enabled
-        ? generateSectionItems(
+        ? generateTimedSectionItems(
             stretchPool,
             settings.stretching.count,
-            1,
-            1,
-            settings.stretching.minSeconds,
-            settings.stretching.maxSeconds,
+            settings.stretching.durationMinutes * 60,
             "Stretching"
           )
         : [];
@@ -497,6 +445,9 @@
       }
       const card = document.createElement("article");
       card.className = "workout-card";
+      const isTimedSection = item.block === "Warm-Up" || item.block === "Stretching";
+      const repsMax = isTimedSection ? 3600 : 40;
+      const repsLabel = isTimedSection ? "Sekunder" : "Reps";
 
       card.innerHTML = `
         <h3 class="exercise-name">${index + 1}. ${escapeHtml(item.exercise.name)}</h3>
@@ -515,12 +466,12 @@
             <input data-edit-type="sets" data-index="${index}" type="number" min="1" max="12" value="${item.sets}" />
           </label>
           <label class="field">
-            <span>Reps</span>
-            <input data-edit-type="reps" data-index="${index}" type="number" min="1" max="40" value="${item.reps}" />
+            <span>${repsLabel}</span>
+            <input data-edit-type="reps" data-index="${index}" type="number" min="1" max="${repsMax}" value="${item.reps}" />
           </label>
         </div>
         <p class="workout-line">${
-          item.block === "Stretching"
+          isTimedSection
             ? `${item.sets} set x ${item.reps} sek hold`
             : `${item.sets} sets x ${item.reps} reps`
         }</p>
@@ -591,14 +542,10 @@
     elements.generatorFavoritesOnly.checked = generator.favoritesOnly;
     elements.includeWarmup.checked = generator.warmup?.enabled ?? true;
     elements.warmupCount.value = String(generator.warmup?.count ?? 3);
-    elements.warmupMinSets.value = String(generator.warmup?.minSets ?? 1);
-    elements.warmupMaxSets.value = String(generator.warmup?.maxSets ?? 2);
-    elements.warmupMinReps.value = String(generator.warmup?.minReps ?? 10);
-    elements.warmupMaxReps.value = String(generator.warmup?.maxReps ?? 16);
+    elements.warmupDurationMinutes.value = String(generator.warmup?.durationMinutes ?? 8);
     elements.includeStretching.checked = generator.stretching?.enabled ?? true;
     elements.stretchCount.value = String(generator.stretching?.count ?? 3);
-    elements.stretchMinSeconds.value = String(generator.stretching?.minSeconds ?? 25);
-    elements.stretchMaxSeconds.value = String(generator.stretching?.maxSeconds ?? 45);
+    elements.stretchDurationMinutes.value = String(generator.stretching?.durationMinutes ?? 6);
   }
 
   function updateGeneratorModeVisibility() {
@@ -637,16 +584,12 @@
         warmup: {
           enabled: true,
           count: 3,
-          minSets: 1,
-          maxSets: 2,
-          minReps: 10,
-          maxReps: 16
+          durationMinutes: 8
         },
         stretching: {
           enabled: true,
           count: 3,
-          minSeconds: 25,
-          maxSeconds: 45
+          durationMinutes: 6
         }
       }
     };
@@ -681,16 +624,12 @@
           warmup: {
             enabled: parsed?.generator?.warmup?.enabled !== false,
             count: clampInt(parsed?.generator?.warmup?.count, 0, 10, 3),
-            minSets: clampInt(parsed?.generator?.warmup?.minSets, 1, 5, 1),
-            maxSets: clampInt(parsed?.generator?.warmup?.maxSets, 1, 6, 2),
-            minReps: clampInt(parsed?.generator?.warmup?.minReps, 5, 40, 10),
-            maxReps: clampInt(parsed?.generator?.warmup?.maxReps, 5, 60, 16)
+            durationMinutes: clampInt(parsed?.generator?.warmup?.durationMinutes, 1, 60, 8)
           },
           stretching: {
             enabled: parsed?.generator?.stretching?.enabled !== false,
             count: clampInt(parsed?.generator?.stretching?.count, 0, 10, 3),
-            minSeconds: clampInt(parsed?.generator?.stretching?.minSeconds, 10, 180, 25),
-            maxSeconds: clampInt(parsed?.generator?.stretching?.maxSeconds, 10, 240, 45)
+            durationMinutes: clampInt(parsed?.generator?.stretching?.durationMinutes, 1, 60, 6)
           }
         }
       };
@@ -725,16 +664,12 @@
         warmup: {
           enabled: state.settings.generator.warmup.enabled,
           count: state.settings.generator.warmup.count,
-          minSets: state.settings.generator.warmup.minSets,
-          maxSets: state.settings.generator.warmup.maxSets,
-          minReps: state.settings.generator.warmup.minReps,
-          maxReps: state.settings.generator.warmup.maxReps
+          durationMinutes: state.settings.generator.warmup.durationMinutes
         },
         stretching: {
           enabled: state.settings.generator.stretching.enabled,
           count: state.settings.generator.stretching.count,
-          minSeconds: state.settings.generator.stretching.minSeconds,
-          maxSeconds: state.settings.generator.stretching.maxSeconds
+          durationMinutes: state.settings.generator.stretching.durationMinutes
         }
       }
     };
@@ -810,13 +745,14 @@
     return copy.slice(0, count);
   }
 
-  function generateSectionItems(pool, count, minSets, maxSets, minReps, maxReps, block) {
+  function generateTimedSectionItems(pool, count, totalSeconds, block) {
     if (!Array.isArray(pool) || pool.length === 0 || count <= 0) return [];
     const selected = sampleUnique(pool, Math.min(count, pool.length));
+    const exerciseSeconds = Math.max(1, Math.round(Math.max(1, totalSeconds) / selected.length));
     return selected.map((exercise) => ({
       exercise,
-      sets: randomInt(minSets, maxSets),
-      reps: randomInt(minReps, maxReps),
+      sets: 1,
+      reps: exerciseSeconds,
       locked: false,
       block
     }));
@@ -829,7 +765,13 @@
   }
 
   function totalWorkoutSeconds(workoutItems, settings) {
-    return workoutItems.reduce((sum, item) => sum + estimateExerciseSeconds(item.sets, item.reps, settings), 0);
+    return workoutItems.reduce((sum, item) => {
+      const isTimedSection = item.block === "Warm-Up" || item.block === "Stretching";
+      if (isTimedSection) {
+        return sum + Math.max(1, item.sets) * Math.max(1, item.reps);
+      }
+      return sum + estimateExerciseSeconds(item.sets, item.reps, settings);
+    }, 0);
   }
 
   function generateWorkoutByTime(pool, settings, targetSecondsOverride) {
@@ -854,27 +796,6 @@
     return result;
   }
 
-  function generateSectionByTime(pool, settings, targetSeconds, minSets, maxSets, minReps, maxReps, block) {
-    if (!Array.isArray(pool) || pool.length === 0 || targetSeconds <= 0) return [];
-    const shuffled = sampleUnique(pool, pool.length);
-    const result = [];
-    let accumulated = 0;
-
-    for (const exercise of shuffled) {
-      const sets = randomInt(minSets, maxSets);
-      const reps = randomInt(minReps, maxReps);
-      const seconds = estimateExerciseSeconds(sets, reps, settings);
-
-      if (accumulated + seconds <= targetSeconds || result.length === 0) {
-        result.push({ exercise, sets, reps, locked: false, block });
-        accumulated += seconds;
-      }
-      if (accumulated >= targetSeconds) break;
-    }
-
-    return result;
-  }
-
   function onGeneratedWorkoutEdit(action, index, target) {
     const item = state.generatedWorkout[index];
     if (!item) return;
@@ -882,7 +803,8 @@
     if (action === "sets") {
       item.sets = clampInt(target.value, 1, 12, item.sets);
     } else if (action === "reps") {
-      item.reps = clampInt(target.value, 1, 40, item.reps);
+      const maxReps = item.block === "Warm-Up" || item.block === "Stretching" ? 3600 : 40;
+      item.reps = clampInt(target.value, 1, maxReps, item.reps);
     } else if (action === "exercise-search") {
       const nextExercise = findExerciseByName(target.value);
       if (nextExercise) {
@@ -1033,7 +955,11 @@
       card.innerHTML = `
         <h3 class="exercise-name">${exerciseIndex + 1}. ${escapeHtml(item.exercise.name)}</h3>
         <a class="demo-link" href="${escapeHtml(getDemoSearchUrl(item.exercise.name))}" target="_blank" rel="noopener noreferrer">Demo</a>
-        <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
+        <p class="workout-line">${
+          item.exercise.categories.includes("Warm-Up") || item.exercise.categories.includes("Stretching")
+            ? `${item.sets} set x ${item.reps} sek hold`
+            : `${item.sets} sets x ${item.reps} reps`
+        }</p>
         <div class="set-track">${pills}</div>
         <p class="set-help">Swipe pa et set (eller tryk) for at markere/afmarkere.</p>
       `;
@@ -1208,7 +1134,11 @@
       card.className = "workout-card";
       const timeLabel = new Date(entry.createdAt).toLocaleString("da-DK");
       const summary = entry.items
-        .map((item, i) => `${i + 1}. ${item.exercise.name} (${item.sets}x${item.reps})`)
+        .map((item, i) => {
+          const isTimedSection = item.block === "Warm-Up" || item.block === "Stretching";
+          const detail = isTimedSection ? `${item.sets}x${item.reps}s` : `${item.sets}x${item.reps}`;
+          return `${i + 1}. ${item.exercise.name} (${detail})`;
+        })
         .join("<br>");
       card.innerHTML = `
         <h3 class="exercise-name">Workout #${state.workoutHistory.length - index}</h3>
