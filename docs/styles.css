@@ -153,15 +153,13 @@ input[type="number"] {
 }
 
 .exercise-list,
-.workout-list,
-.history-list {
+.workout-list {
   display: grid;
   gap: 8px;
 }
 
 .exercise-card,
-.workout-card,
-.history-card {
+.workout-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px;
@@ -233,12 +231,6 @@ input[type="number"] {
 
 .workout-line {
   margin: 4px 0 0;
-  color: var(--muted);
-}
-
-.timestamp {
-  margin: 0 0 6px;
-  font-size: 0.82rem;
   color: var(--muted);
 }
 

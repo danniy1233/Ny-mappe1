@@ -2,20 +2,26 @@
   const STORAGE_KEYS = {
     favorites: "fitness_randomizer_favorites_v1",
     settings: "fitness_randomizer_settings_v1",
-    history: "fitness_randomizer_history_v1",
-    imageCache: "fitness_randomizer_image_cache_v1"
+    imageCache: "fitness_randomizer_image_cache_v2"
   };
 
   const exercises = EXERCISES.map((exercise, index) => ({
     id: `ex-${index + 1}`,
     ...exercise
   }));
+  const IMAGE_QUERY_OVERRIDES = {
+    "Back Squat": ["barbell back squat exercise", "squat form gym"],
+    "Barbell Bench Press": ["barbell bench press exercise", "bench press gym"],
+    "Conventional Deadlift": ["barbell deadlift exercise", "deadlift form gym"],
+    "Pull-Up": ["pull up exercise", "pull up bar gym"],
+    "Overhead Press": ["barbell overhead press exercise", "shoulder press barbell"],
+    "Romanian Deadlift": ["romanian deadlift exercise", "rdl gym form"]
+  };
 
   const state = {
     activeTab: "library",
     favorites: new Set(loadArray(STORAGE_KEYS.favorites)),
     settings: loadSettings(),
-    history: loadArray(STORAGE_KEYS.history),
     generatedWorkout: [],
     imageCache: loadObject(STORAGE_KEYS.imageCache),
     pendingImageLookups: new Set()
@@ -40,8 +46,7 @@
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
     generateButton: document.getElementById("generate-button"),
-    generatedWorkout: document.getElementById("generated-workout"),
-    workoutHistory: document.getElementById("workout-history")
+    generatedWorkout: document.getElementById("generated-workout")
   };
 
   initialize();
@@ -52,7 +57,6 @@
     renderFilters();
     renderExerciseList();
     renderGeneratedWorkout();
-    renderHistory();
   }
 
   function wireEvents() {
@@ -257,19 +261,7 @@
       reps: randomInt(settings.minReps, settings.maxReps)
     }));
 
-    const entry = {
-      createdAt: new Date().toISOString(),
-      items: state.generatedWorkout.map((item) => ({
-        name: item.exercise.name,
-        sets: item.sets,
-        reps: item.reps
-      }))
-    };
-    state.history = [entry, ...state.history].slice(0, 20);
-    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(state.history));
-
     renderGeneratedWorkout();
-    renderHistory();
   }
 
   function renderGeneratedWorkout(message) {
@@ -297,29 +289,6 @@
       `;
       elements.generatedWorkout.appendChild(card);
       maybeLookupExerciseImage(item.exercise);
-    });
-  }
-
-  function renderHistory() {
-    elements.workoutHistory.innerHTML = "";
-
-    if (state.history.length === 0) {
-      elements.workoutHistory.innerHTML = `<p class="muted">Ingen historik endnu.</p>`;
-      return;
-    }
-
-    state.history.forEach((entry) => {
-      const card = document.createElement("article");
-      card.className = "history-card";
-      const timestamp = new Date(entry.createdAt).toLocaleString("da-DK");
-      const lines = entry.items
-        .map((item, index) => `${index + 1}. ${item.name} - ${item.sets} x ${item.reps}`)
-        .join("<br>");
-      card.innerHTML = `
-        <p class="timestamp">${escapeHtml(timestamp)}</p>
-        <p class="meta">${lines}</p>
-      `;
-      elements.workoutHistory.appendChild(card);
     });
   }
 
@@ -482,17 +451,87 @@
   }
 
   async function lookupWikimediaExerciseImage(exercise) {
-    const query = `${exercise.name} exercise`;
-    const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*`;
-    const response = await fetch(apiUrl);
-    if (!response.ok) return null;
-    const data = await response.json();
-    const pages = data?.query?.pages;
-    if (!pages) return null;
-    const firstPage = Object.values(pages)[0];
-    const imageInfo = firstPage?.imageinfo?.[0];
-    if (!imageInfo) return null;
-    return imageInfo.thumburl || imageInfo.url || null;
+    const queries = buildSearchQueries(exercise);
+    for (const query of queries) {
+      const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*`;
+      const response = await fetch(apiUrl);
+      if (!response.ok) continue;
+      const data = await response.json();
+      const pages = data?.query?.pages;
+      if (!pages) continue;
+
+      const candidates = Object.values(pages)
+        .map((page) => {
+          const imageInfo = page?.imageinfo?.[0];
+          if (!imageInfo) return null;
+          return {
+            title: String(page?.title || ""),
+            url: imageInfo.thumburl || imageInfo.url || ""
+          };
+        })
+        .filter(Boolean);
+
+      const best = chooseBestCandidate(candidates, exercise);
+      if (best) return best.url;
+    }
+    return null;
+  }
+
+  function buildSearchQueries(exercise) {
+    const overrides = IMAGE_QUERY_OVERRIDES[exercise.name];
+    if (overrides) return overrides;
+    const primary = `${exercise.name} exercise`;
+    const simpler = exercise.name
+      .replaceAll("One-Arm", "")
+      .replaceAll("Standing", "")
+      .replaceAll("Conventional", "")
+      .trim();
+    const byBodyArea = `${simpler} ${exercise.bodyAreas[0] || "fitness"} training`;
+    const fallback = `${simpler} gym form`;
+    return [primary, byBodyArea, fallback];
+  }
+
+  function chooseBestCandidate(candidates, exercise) {
+    const banned = [
+      "logo",
+      "icon",
+      "diagram",
+      "chart",
+      "meme",
+      "poster",
+      "drawing",
+      "cartoon",
+      "anatomy",
+      "skeleton"
+    ];
+    const tokens = exercise.name
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length > 2 && !["and", "with"].includes(token));
+
+    let best = null;
+    let bestScore = -999;
+
+    candidates.forEach((candidate) => {
+      const title = candidate.title.toLowerCase();
+      const looksRaster = /\.(jpg|jpeg|png)\b/.test(title);
+      if (!looksRaster) return;
+      if (banned.some((word) => title.includes(word))) return;
+
+      let score = 0;
+      tokens.forEach((token) => {
+        if (title.includes(token)) score += 3;
+      });
+      if (title.includes("exercise") || title.includes("workout") || title.includes("gym")) score += 1;
+      if (title.includes("how to")) score += 1;
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    });
+
+    return bestScore >= 3 ? best : null;
   }
 
   function updateExerciseImages(exerciseId, url) {
