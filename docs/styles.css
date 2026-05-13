@@ -167,19 +167,6 @@ input[type="number"] {
   background: #fff;
 }
 
-.exercise-image {
-  width: 120px !important;
-  max-width: 120px !important;
-  min-width: 120px;
-  height: 76px !important;
-  object-fit: cover;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  margin-bottom: 8px;
-  background: #e6eef4;
-  display: block;
-}
-
 .exercise-top {
   display: flex;
   justify-content: space-between;
@@ -239,12 +226,5 @@ input[type="number"] {
 @media (max-width: 600px) {
   .site-header h1 {
     font-size: 1.45rem;
-  }
-
-  .exercise-image {
-    width: 104px !important;
-    max-width: 104px !important;
-    min-width: 104px;
-    height: 66px !important;
   }
 }
