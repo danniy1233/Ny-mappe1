@@ -286,6 +286,11 @@ select {
   box-shadow: 0 0 0 2px rgba(95, 168, 211, 0.12);
 }
 
+.completed-workout-card {
+  background: #ecfbf2;
+  border-color: #7ac9a2;
+}
+
 .set-track {
   display: flex;
   flex-wrap: wrap;

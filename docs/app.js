@@ -755,7 +755,10 @@
 
     state.activeWorkout.items.forEach((item, exerciseIndex) => {
       const card = document.createElement("article");
-      card.className = `workout-card${exerciseIndex === currentIndex ? " active-workout-card" : ""}`;
+      const isExerciseDone = item.completedSets >= item.sets;
+      card.className = `workout-card${exerciseIndex === currentIndex ? " active-workout-card" : ""}${
+        isExerciseDone ? " completed-workout-card" : ""
+      }`;
       const pills = Array.from({ length: item.sets }, (_, setIndex) => {
         const done = setIndex < item.completedSets;
         return `<button type="button" class="set-pill ${done ? "done" : ""}" data-active-action="set" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}">Set ${setIndex + 1}</button>`;
