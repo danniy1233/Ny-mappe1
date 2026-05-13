@@ -222,8 +222,11 @@
   function generateWorkout() {
     onGeneratorSettingsChange();
     const settings = state.settings.generator;
+    const lockedItems = state.generatedWorkout.filter((item) => item.locked);
+    const lockedIds = new Set(lockedItems.map((item) => item.exercise.id));
 
     const pool = state.exercises.filter((exercise) => {
+      if (lockedIds.has(exercise.id)) return false;
       const matchesFavorites = !settings.favoritesOnly || state.favorites.has(exercise.id);
       const matchesEquipment =
         settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
@@ -232,23 +235,29 @@
       return matchesFavorites && matchesEquipment && matchesBodyAreas;
     });
 
-    if (pool.length === 0) {
+    if (pool.length === 0 && lockedItems.length === 0) {
       state.generatedWorkout = [];
       localStorage.setItem(STORAGE_KEYS.generatedWorkout, JSON.stringify([]));
       renderGeneratedWorkout("Ingen ovelser matcher generator-filtrene.");
       return;
     }
 
+    let freshItems = [];
     if (settings.mode === "time") {
-      state.generatedWorkout = generateWorkoutByTime(pool, settings);
+      const lockedSeconds = totalWorkoutSeconds(lockedItems, settings);
+      const targetSeconds = Math.max(60, settings.durationMinutes * 60 - lockedSeconds);
+      freshItems = generateWorkoutByTime(pool, settings, targetSeconds);
     } else {
-      const selected = sampleUnique(pool, Math.min(settings.count, pool.length));
-      state.generatedWorkout = selected.map((exercise) => ({
+      const remainingCount = Math.max(0, settings.count - lockedItems.length);
+      const selected = sampleUnique(pool, Math.min(remainingCount, pool.length));
+      freshItems = selected.map((exercise) => ({
         exercise,
         sets: randomInt(settings.minSets, settings.maxSets),
-        reps: randomInt(settings.minReps, settings.maxReps)
+        reps: randomInt(settings.minReps, settings.maxReps),
+        locked: false
       }));
     }
+    state.generatedWorkout = [...lockedItems, ...freshItems];
     persistGeneratedWorkout();
 
     renderGeneratedWorkout();
@@ -273,15 +282,90 @@
     estimate.textContent = `Estimeret varighed: ca. ${Math.max(1, Math.round(totalSeconds / 60))} min`;
     elements.generatedWorkout.appendChild(estimate);
 
+    const addButton = document.createElement("button");
+    addButton.type = "button";
+    addButton.className = "secondary";
+    addButton.textContent = "Tilfoej ovelse";
+    addButton.addEventListener("click", () => {
+      addExerciseToGeneratedWorkout();
+    });
+    elements.generatedWorkout.appendChild(addButton);
+
     state.generatedWorkout.forEach((item, index) => {
       const card = document.createElement("article");
       card.className = "workout-card";
+      const exerciseOptions = state.exercises
+        .map(
+          (exercise) =>
+            `<option value="${escapeHtml(exercise.id)}" ${
+              exercise.id === item.exercise.id ? "selected" : ""
+            }>${escapeHtml(exercise.name)}</option>`
+        )
+        .join("");
+
       card.innerHTML = `
         <h3 class="exercise-name">${index + 1}. ${escapeHtml(item.exercise.name)}</h3>
+        <label class="checkbox-row compact-row">
+          <input data-edit-type="lock" data-index="${index}" type="checkbox" ${item.locked ? "checked" : ""} />
+          <span>Laas ovelse</span>
+        </label>
+        <label class="field">
+          <span>Ovelse</span>
+          <select data-edit-type="exercise" data-index="${index}">
+            ${exerciseOptions}
+          </select>
+        </label>
+        <div class="inline-edit">
+          <label class="field">
+            <span>Sets</span>
+            <input data-edit-type="sets" data-index="${index}" type="number" min="1" max="12" value="${item.sets}" />
+          </label>
+          <label class="field">
+            <span>Reps</span>
+            <input data-edit-type="reps" data-index="${index}" type="number" min="1" max="40" value="${item.reps}" />
+          </label>
+        </div>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
         <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))}</p>
+        <div class="workout-actions">
+          <button type="button" class="secondary small" data-edit-type="duplicate" data-index="${index}">Dupliker</button>
+          <button type="button" class="secondary small" data-edit-type="up" data-index="${index}">Op</button>
+          <button type="button" class="secondary small" data-edit-type="down" data-index="${index}">Ned</button>
+          <button type="button" class="danger small" data-edit-type="remove" data-index="${index}">Fjern</button>
+        </div>
       `;
+      card.setAttribute("draggable", "true");
+      card.setAttribute("data-drag-index", String(index));
       elements.generatedWorkout.appendChild(card);
+    });
+
+    wireDragAndDrop();
+    elements.generatedWorkout.querySelectorAll("[data-edit-type]").forEach((control) => {
+      const action = control.getAttribute("data-edit-type");
+      const index = Number.parseInt(control.getAttribute("data-index") || "", 10);
+      if (Number.isNaN(index)) return;
+
+      if (action === "remove") {
+        control.addEventListener("click", () => {
+          removeGeneratedWorkoutItem(index);
+        });
+      } else if (action === "duplicate") {
+        control.addEventListener("click", () => {
+          duplicateGeneratedWorkoutItem(index);
+        });
+      } else if (action === "up") {
+        control.addEventListener("click", () => {
+          moveGeneratedWorkoutItem(index, index - 1);
+        });
+      } else if (action === "down") {
+        control.addEventListener("click", () => {
+          moveGeneratedWorkoutItem(index, index + 1);
+        });
+      } else {
+        control.addEventListener("change", (event) => {
+          onGeneratedWorkoutEdit(action, index, event.target);
+        });
+      }
     });
   }
 
@@ -421,7 +505,8 @@
             bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : []
           },
           sets,
-          reps
+          reps,
+          locked: Boolean(item.locked)
         };
       })
       .filter(Boolean);
@@ -465,8 +550,8 @@
     return workoutItems.reduce((sum, item) => sum + estimateExerciseSeconds(item.sets, item.reps, settings), 0);
   }
 
-  function generateWorkoutByTime(pool, settings) {
-    const targetSeconds = settings.durationMinutes * 60;
+  function generateWorkoutByTime(pool, settings, targetSecondsOverride) {
+    const targetSeconds = targetSecondsOverride || settings.durationMinutes * 60;
     const shuffled = sampleUnique(pool, pool.length);
     const result = [];
     let accumulated = 0;
@@ -477,13 +562,98 @@
       const seconds = estimateExerciseSeconds(sets, reps, settings);
 
       if (accumulated + seconds <= targetSeconds || result.length === 0) {
-        result.push({ exercise, sets, reps });
+        result.push({ exercise, sets, reps, locked: false });
         accumulated += seconds;
       }
       if (accumulated >= targetSeconds) break;
     }
 
     return result;
+  }
+
+  function onGeneratedWorkoutEdit(action, index, target) {
+    const item = state.generatedWorkout[index];
+    if (!item) return;
+
+    if (action === "sets") {
+      item.sets = clampInt(target.value, 1, 12, item.sets);
+    } else if (action === "reps") {
+      item.reps = clampInt(target.value, 1, 40, item.reps);
+    } else if (action === "exercise") {
+      const nextExercise = state.exercises.find((exercise) => exercise.id === target.value);
+      if (nextExercise) {
+        item.exercise = nextExercise;
+      }
+    } else if (action === "lock") {
+      item.locked = Boolean(target.checked);
+    }
+
+    persistGeneratedWorkout();
+    renderGeneratedWorkout();
+  }
+
+  function removeGeneratedWorkoutItem(index) {
+    if (index < 0 || index >= state.generatedWorkout.length) return;
+    state.generatedWorkout.splice(index, 1);
+    persistGeneratedWorkout();
+    renderGeneratedWorkout();
+  }
+
+  function addExerciseToGeneratedWorkout() {
+    const usedIds = new Set(state.generatedWorkout.map((item) => item.exercise.id));
+    const candidate =
+      state.exercises.find((exercise) => !usedIds.has(exercise.id)) ||
+      state.exercises[0];
+    if (!candidate) return;
+
+    state.generatedWorkout.push({
+      exercise: candidate,
+      sets: clampInt(state.settings.generator.minSets, 1, 12, 3),
+      reps: clampInt(state.settings.generator.minReps, 1, 40, 8),
+      locked: false
+    });
+    persistGeneratedWorkout();
+    renderGeneratedWorkout();
+  }
+
+  function duplicateGeneratedWorkoutItem(index) {
+    const original = state.generatedWorkout[index];
+    if (!original) return;
+    state.generatedWorkout.splice(index + 1, 0, {
+      exercise: original.exercise,
+      sets: original.sets,
+      reps: original.reps,
+      locked: false
+    });
+    persistGeneratedWorkout();
+    renderGeneratedWorkout();
+  }
+
+  function moveGeneratedWorkoutItem(fromIndex, toIndex) {
+    if (fromIndex < 0 || fromIndex >= state.generatedWorkout.length) return;
+    if (toIndex < 0 || toIndex >= state.generatedWorkout.length) return;
+    const [item] = state.generatedWorkout.splice(fromIndex, 1);
+    state.generatedWorkout.splice(toIndex, 0, item);
+    persistGeneratedWorkout();
+    renderGeneratedWorkout();
+  }
+
+  function wireDragAndDrop() {
+    let dragFromIndex = null;
+    elements.generatedWorkout.querySelectorAll("[data-drag-index]").forEach((card) => {
+      card.addEventListener("dragstart", () => {
+        dragFromIndex = Number.parseInt(card.getAttribute("data-drag-index") || "", 10);
+      });
+      card.addEventListener("dragover", (event) => {
+        event.preventDefault();
+      });
+      card.addEventListener("drop", () => {
+        const toIndex = Number.parseInt(card.getAttribute("data-drag-index") || "", 10);
+        if (Number.isNaN(dragFromIndex) || Number.isNaN(toIndex)) return;
+        if (dragFromIndex === toIndex) return;
+        moveGeneratedWorkoutItem(dragFromIndex, toIndex);
+      });
+    });
   }
 
   function escapeHtml(value) {

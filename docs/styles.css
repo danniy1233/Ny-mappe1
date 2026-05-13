@@ -219,6 +219,60 @@ select {
   background: var(--primary-strong);
 }
 
+.secondary {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  padding: 9px 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.secondary.small,
+.danger.small {
+  width: auto;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.danger {
+  border: 1px solid #e7c3c3;
+  border-radius: 10px;
+  background: #fff7f7;
+  color: #9b2c2c;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.inline-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.compact-row {
+  margin: 6px 0 8px;
+}
+
+.workout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.workout-card[draggable="true"] {
+  cursor: move;
+}
+
 .workout-line {
   margin: 4px 0 0;
   color: var(--muted);
