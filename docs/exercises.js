@@ -5,6 +5,8 @@ const EQUIPMENT_OPTIONS = [
   "Kettlebell",
   "Machine",
   "Cable",
+  "Resistance Band",
+  "Gymnastic Rings",
   "Pull-up Bar",
   "Bench"
 ];
@@ -31,10 +33,18 @@ const EXERCISES = [
 
   { name: "Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps", "Core"] },
   { name: "Chin-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps"] },
+  { name: "Wide-Grip Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps"] },
+  { name: "Neutral-Grip Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps"] },
+  { name: "Commando Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps", "Core"] },
+  { name: "Scapular Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Shoulders"] },
+  { name: "Negative Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps"] },
+  { name: "Assisted Band Pull-Up", equipment: ["Pull-up Bar", "Resistance Band"], bodyAreas: ["Back", "Biceps"] },
   { name: "Lat Pulldown", equipment: ["Machine"], bodyAreas: ["Back", "Biceps"] },
   { name: "Seated Cable Row", equipment: ["Cable"], bodyAreas: ["Back", "Biceps"] },
   { name: "One-Arm Dumbbell Row", equipment: ["Dumbbells", "Bench"], bodyAreas: ["Back", "Biceps"] },
   { name: "Barbell Row", equipment: ["Barbell"], bodyAreas: ["Back", "Biceps", "Core"] },
+  { name: "Inverted Row", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps", "Core"] },
+  { name: "Australian Pull-Up", equipment: ["Pull-up Bar", "Bodyweight"], bodyAreas: ["Back", "Biceps"] },
 
   { name: "Overhead Press", equipment: ["Barbell"], bodyAreas: ["Shoulders", "Triceps", "Core"] },
   { name: "Dumbbell Shoulder Press", equipment: ["Dumbbells"], bodyAreas: ["Shoulders", "Triceps"] },
@@ -52,6 +62,15 @@ const EXERCISES = [
   { name: "Overhead Triceps Extension", equipment: ["Dumbbells"], bodyAreas: ["Triceps"] },
   { name: "Close-Grip Push-Up", equipment: ["Bodyweight"], bodyAreas: ["Triceps", "Chest"] },
   { name: "Bench Dips", equipment: ["Bodyweight", "Bench"], bodyAreas: ["Triceps", "Chest"] },
+  { name: "Ring Dips", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Chest", "Triceps", "Shoulders"] },
+  { name: "Ring Push-Up", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Chest", "Shoulders", "Core"] },
+  { name: "Ring Triceps Extension", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Triceps", "Core"] },
+  { name: "Ring Biceps Curl", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Biceps", "Core"] },
+  { name: "Ring Row", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Back", "Biceps", "Core"] },
+  { name: "Ring Archer Row", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Back", "Biceps", "Core"] },
+  { name: "Ring Support Hold", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Shoulders", "Core", "Triceps"] },
+  { name: "Ring L-Sit Hold", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Core", "Shoulders", "Triceps"] },
+  { name: "Ring Face Pull", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Shoulders", "Back"] },
 
   { name: "Back Squat", equipment: ["Barbell"], bodyAreas: ["Legs", "Glutes", "Core"] },
   { name: "Goblet Squat", equipment: ["Kettlebell", "Dumbbells"], bodyAreas: ["Legs", "Glutes", "Core"] },
@@ -71,5 +90,20 @@ const EXERCISES = [
   { name: "Cable Crunch", equipment: ["Cable"], bodyAreas: ["Core"] },
   { name: "Dead Bug", equipment: ["Bodyweight"], bodyAreas: ["Core"] },
 
-  { name: "Kettlebell Swing", equipment: ["Kettlebell"], bodyAreas: ["Full Body", "Glutes", "Legs", "Core"] }
+  { name: "Kettlebell Swing", equipment: ["Kettlebell"], bodyAreas: ["Full Body", "Glutes", "Legs", "Core"] },
+
+  { name: "Band Pull-Apart", equipment: ["Resistance Band"], bodyAreas: ["Shoulders", "Back"] },
+  { name: "Band Face Pull", equipment: ["Resistance Band"], bodyAreas: ["Shoulders", "Back"] },
+  { name: "Band Row", equipment: ["Resistance Band"], bodyAreas: ["Back", "Biceps"] },
+  { name: "Band Lat Pulldown", equipment: ["Resistance Band"], bodyAreas: ["Back", "Biceps"] },
+  { name: "Band Biceps Curl", equipment: ["Resistance Band"], bodyAreas: ["Biceps"] },
+  { name: "Band Triceps Pushdown", equipment: ["Resistance Band"], bodyAreas: ["Triceps"] },
+  { name: "Band Overhead Press", equipment: ["Resistance Band"], bodyAreas: ["Shoulders", "Triceps"] },
+  { name: "Band Lateral Raise", equipment: ["Resistance Band"], bodyAreas: ["Shoulders"] },
+  { name: "Band Chest Press", equipment: ["Resistance Band"], bodyAreas: ["Chest", "Triceps"] },
+  { name: "Band Chest Fly", equipment: ["Resistance Band"], bodyAreas: ["Chest"] },
+  { name: "Band Squat", equipment: ["Resistance Band"], bodyAreas: ["Legs", "Glutes"] },
+  { name: "Band Romanian Deadlift", equipment: ["Resistance Band"], bodyAreas: ["Legs", "Glutes", "Back"] },
+  { name: "Band Glute Bridge", equipment: ["Resistance Band"], bodyAreas: ["Glutes", "Legs"] },
+  { name: "Band Lateral Walk", equipment: ["Resistance Band"], bodyAreas: ["Glutes", "Legs"] }
 ];
