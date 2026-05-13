@@ -1,30 +1,28 @@
 (function () {
+  const APP_CONFIG = window.FITNESS_APP_CONFIG || {};
   const STORAGE_KEYS = {
     favorites: "fitness_randomizer_favorites_v1",
-    settings: "fitness_randomizer_settings_v1",
-    imageCache: "fitness_randomizer_image_cache_v2"
+    settings: "fitness_randomizer_settings_v1"
   };
 
-  const exercises = EXERCISES.map((exercise, index) => ({
-    id: `ex-${index + 1}`,
-    ...exercise
-  }));
-  const IMAGE_QUERY_OVERRIDES = {
-    "Back Squat": ["barbell back squat exercise", "squat form gym"],
-    "Barbell Bench Press": ["barbell bench press exercise", "bench press gym"],
-    "Conventional Deadlift": ["barbell deadlift exercise", "deadlift form gym"],
-    "Pull-Up": ["pull up exercise", "pull up bar gym"],
-    "Overhead Press": ["barbell overhead press exercise", "shoulder press barbell"],
-    "Romanian Deadlift": ["romanian deadlift exercise", "rdl gym form"]
+  const DEFAULT_CONFIG = {
+    dataSource: "local",
+    exerciseDbEndpoint: "",
+    exerciseDbApiKey: "",
+    exerciseDbApiHost: "",
+    imageMode: "exercise",
+    muscleVisualizerTemplate: ""
   };
+
+  const config = { ...DEFAULT_CONFIG, ...APP_CONFIG };
 
   const state = {
     activeTab: "library",
     favorites: new Set(loadArray(STORAGE_KEYS.favorites)),
     settings: loadSettings(),
     generatedWorkout: [],
-    imageCache: loadObject(STORAGE_KEYS.imageCache),
-    pendingImageLookups: new Set()
+    exercises: normalizeLocalExercises(EXERCISES),
+    dataSourceLabel: "Lokale ovelser"
   };
 
   const elements = {
@@ -51,12 +49,13 @@
 
   initialize();
 
-  function initialize() {
+  async function initialize() {
     hydrateInputsFromSettings();
     wireEvents();
     renderFilters();
     renderExerciseList();
     renderGeneratedWorkout();
+    await tryLoadExercisesFromApi();
   }
 
   function wireEvents() {
@@ -84,6 +83,37 @@
     elements.generatorFavoritesOnly.addEventListener("change", onGeneratorSettingsChange);
 
     elements.generateButton.addEventListener("click", generateWorkout);
+  }
+
+  async function tryLoadExercisesFromApi() {
+    if (config.dataSource !== "exercisedb") return;
+    if (!config.exerciseDbEndpoint) return;
+
+    try {
+      const headers = {};
+      if (config.exerciseDbApiKey) headers["X-RapidAPI-Key"] = config.exerciseDbApiKey;
+      if (config.exerciseDbApiHost) headers["X-RapidAPI-Host"] = config.exerciseDbApiHost;
+
+      const response = await fetch(config.exerciseDbEndpoint, { headers });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) return;
+
+      const mapped = data
+        .map((item, index) => normalizeRemoteExercise(item, index))
+        .filter((item) => item && item.name && item.equipment.length > 0 && item.bodyAreas.length > 0);
+
+      if (mapped.length === 0) return;
+      state.exercises = mapped;
+      state.dataSourceLabel = "ExerciseDB API";
+      renderExerciseList();
+      if (state.generatedWorkout.length > 0) {
+        state.generatedWorkout = [];
+        renderGeneratedWorkout("Generator nulstillet efter data-opdatering.");
+      }
+    } catch (_error) {
+      // Local fallback remains active if API fails.
+    }
   }
 
   function switchTab(tabName) {
@@ -150,16 +180,14 @@
       chip.type = "button";
       chip.className = "chip";
       chip.textContent = value;
-      if (selectedValues.has(value)) {
-        chip.classList.add("active");
-      }
+      if (selectedValues.has(value)) chip.classList.add("active");
       chip.addEventListener("click", () => onToggle(value));
       container.appendChild(chip);
     });
   }
 
   function renderExerciseList() {
-    const filtered = exercises
+    const filtered = state.exercises
       .filter((exercise) => matchesLibraryFilters(exercise))
       .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -176,7 +204,7 @@
       card.className = "exercise-card";
       const imageUrl = getImageForExercise(exercise);
       card.innerHTML = `
-        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(exercise.name)}" data-exercise-image="${exercise.id}" loading="lazy" width="120" height="76" />
+        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(exercise.name)}" loading="lazy" width="120" height="76" />
         <div class="exercise-top">
           <h3 class="exercise-name">${escapeHtml(exercise.name)}</h3>
           <button class="favorite-btn ${state.favorites.has(exercise.id) ? "active" : ""}" data-id="${exercise.id}" aria-label="Toggle favorit">
@@ -187,8 +215,12 @@
         <p class="meta">${escapeHtml(exercise.equipment.join(", "))}</p>
       `;
       elements.exerciseList.appendChild(card);
-      maybeLookupExerciseImage(exercise);
     });
+
+    const sourceBadge = document.createElement("p");
+    sourceBadge.className = "meta";
+    sourceBadge.textContent = `Datakilde: ${state.dataSourceLabel}`;
+    elements.exerciseList.prepend(sourceBadge);
 
     elements.exerciseList.querySelectorAll(".favorite-btn").forEach((button) => {
       button.addEventListener("click", () => {
@@ -206,10 +238,8 @@
       normalizedSearch.length === 0 || exercise.name.toLowerCase().includes(normalizedSearch);
 
     const matchesFavorites = !library.favoritesOnly || state.favorites.has(exercise.id);
-
     const matchesEquipment =
       library.equipment.size === 0 || exercise.equipment.some((value) => library.equipment.has(value));
-
     const matchesBodyAreas =
       library.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => library.bodyAreas.has(value));
 
@@ -239,7 +269,7 @@
     onGeneratorSettingsChange();
     const settings = state.settings.generator;
 
-    const pool = exercises.filter((exercise) => {
+    const pool = state.exercises.filter((exercise) => {
       const matchesFavorites = !settings.favoritesOnly || state.favorites.has(exercise.id);
       const matchesEquipment =
         settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
@@ -282,13 +312,12 @@
       card.className = "workout-card";
       const imageUrl = getImageForExercise(item.exercise);
       card.innerHTML = `
-        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.exercise.name)}" data-exercise-image="${item.exercise.id}" loading="lazy" width="120" height="76" />
+        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.exercise.name)}" loading="lazy" width="120" height="76" />
         <h3 class="exercise-name">${index + 1}. ${escapeHtml(item.exercise.name)}</h3>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
         <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))}</p>
       `;
       elements.generatedWorkout.appendChild(card);
-      maybeLookupExerciseImage(item.exercise);
     });
   }
 
@@ -393,19 +422,67 @@
     }
   }
 
-  function loadObject(key) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    } catch (_error) {
-      return {};
+  function normalizeLocalExercises(source) {
+    return source.map((exercise, index) => ({
+      id: `local-${index + 1}`,
+      name: exercise.name,
+      equipment: exercise.equipment || [],
+      bodyAreas: exercise.bodyAreas || [],
+      imageUrl: null,
+      muscleMapUrl: null
+    }));
+  }
+
+  function normalizeRemoteExercise(item, index) {
+    const name = String(item?.name || "").trim();
+    const equipmentRaw = item?.equipment || item?.equipments || [];
+    const bodyPartRaw = item?.bodyPart || item?.bodyParts || [];
+    const targetRaw = item?.target || item?.targetMuscles || [];
+
+    const equipment = normalizeAsArray(equipmentRaw).map(toDisplayText);
+    const bodyAreas = normalizeAsArray(bodyPartRaw).concat(normalizeAsArray(targetRaw)).map(toDisplayText);
+
+    const normalizedBodyAreas = unique(
+      bodyAreas.map(mapToBodyArea).filter((value) => BODY_AREA_OPTIONS.includes(value))
+    );
+    const normalizedEquipment = unique(
+      equipment.map(mapToEquipment).filter((value) => EQUIPMENT_OPTIONS.includes(value))
+    );
+
+    const primaryMuscle = normalizeAsArray(targetRaw)[0] || normalizeAsArray(bodyPartRaw)[0] || "";
+    const exerciseName = name || `Exercise ${index + 1}`;
+
+    return {
+      id: String(item?.id || item?.exerciseId || `api-${index + 1}`),
+      name: exerciseName,
+      equipment: normalizedEquipment.length > 0 ? normalizedEquipment : ["Bodyweight"],
+      bodyAreas: normalizedBodyAreas.length > 0 ? normalizedBodyAreas : ["Full Body"],
+      imageUrl: extractImageUrl(item),
+      muscleMapUrl: buildMuscleMapUrl(exerciseName, primaryMuscle, normalizedBodyAreas[0] || "Full Body")
+    };
+  }
+
+  function extractImageUrl(item) {
+    const candidates = [item?.gifUrl, item?.imageUrl, item?.videoUrl];
+    for (const value of candidates) {
+      if (typeof value !== "string") continue;
+      if (value.startsWith("http://") || value.startsWith("https://")) return value;
     }
+    return null;
+  }
+
+  function buildMuscleMapUrl(exerciseName, primaryMuscle, bodyArea) {
+    if (!config.muscleVisualizerTemplate) return null;
+    return config.muscleVisualizerTemplate
+      .replaceAll("{exerciseName}", encodeURIComponent(exerciseName))
+      .replaceAll("{primaryMuscle}", encodeURIComponent(primaryMuscle))
+      .replaceAll("{bodyArea}", encodeURIComponent(bodyArea));
   }
 
   function getImageForExercise(exercise) {
-    return state.imageCache[exercise.id] || placeholderImage(exercise.name);
+    if (config.imageMode === "muscle" && exercise.muscleMapUrl) return exercise.muscleMapUrl;
+    if (exercise.imageUrl) return exercise.imageUrl;
+    return placeholderImage(exercise.name);
   }
 
   function placeholderImage(name) {
@@ -431,122 +508,53 @@
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   }
 
-  function maybeLookupExerciseImage(exercise) {
-    if (state.imageCache[exercise.id] || state.pendingImageLookups.has(exercise.id)) {
-      return;
-    }
-
-    state.pendingImageLookups.add(exercise.id);
-    lookupWikimediaExerciseImage(exercise)
-      .then((url) => {
-        if (!url) return;
-        state.imageCache[exercise.id] = url;
-        localStorage.setItem(STORAGE_KEYS.imageCache, JSON.stringify(state.imageCache));
-        updateExerciseImages(exercise.id, url);
-      })
-      .catch(() => {})
-      .finally(() => {
-        state.pendingImageLookups.delete(exercise.id);
-      });
+  function normalizeAsArray(value) {
+    if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+    if (typeof value === "string" && value.trim()) return [value.trim()];
+    return [];
   }
 
-  async function lookupWikimediaExerciseImage(exercise) {
-    const queries = buildSearchQueries(exercise);
-    for (const query of queries) {
-      const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&prop=imageinfo&iiprop=url&iiurlwidth=640&format=json&origin=*`;
-      const response = await fetch(apiUrl);
-      if (!response.ok) continue;
-      const data = await response.json();
-      const pages = data?.query?.pages;
-      if (!pages) continue;
-
-      const candidates = Object.values(pages)
-        .map((page) => {
-          const imageInfo = page?.imageinfo?.[0];
-          if (!imageInfo) return null;
-          return {
-            title: String(page?.title || ""),
-            url: imageInfo.thumburl || imageInfo.url || ""
-          };
-        })
-        .filter(Boolean);
-
-      const best = chooseBestCandidate(candidates, exercise);
-      if (best) return best.url;
-    }
-    return null;
+  function toDisplayText(value) {
+    const cleaned = String(value).replaceAll("_", " ").toLowerCase();
+    return cleaned
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0].toUpperCase() + part.slice(1))
+      .join(" ");
   }
 
-  function buildSearchQueries(exercise) {
-    const overrides = IMAGE_QUERY_OVERRIDES[exercise.name];
-    if (overrides) return overrides;
-    const primary = `${exercise.name} exercise`;
-    const simpler = exercise.name
-      .replaceAll("One-Arm", "")
-      .replaceAll("Standing", "")
-      .replaceAll("Conventional", "")
-      .trim();
-    const byBodyArea = `${simpler} ${exercise.bodyAreas[0] || "fitness"} training`;
-    const fallback = `${simpler} gym form`;
-    return [primary, byBodyArea, fallback];
+  function mapToEquipment(value) {
+    const lower = value.toLowerCase();
+    if (lower.includes("barbell")) return "Barbell";
+    if (lower.includes("dumbbell")) return "Dumbbells";
+    if (lower.includes("kettlebell")) return "Kettlebell";
+    if (lower.includes("cable")) return "Cable";
+    if (lower.includes("machine")) return "Machine";
+    if (lower.includes("pull") && lower.includes("bar")) return "Pull-up Bar";
+    if (lower.includes("bench")) return "Bench";
+    return "Bodyweight";
   }
 
-  function chooseBestCandidate(candidates, exercise) {
-    const banned = [
-      "logo",
-      "icon",
-      "diagram",
-      "chart",
-      "meme",
-      "poster",
-      "drawing",
-      "cartoon",
-      "anatomy",
-      "skeleton"
-    ];
-    const tokens = exercise.name
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((token) => token.length > 2 && !["and", "with"].includes(token));
-
-    let best = null;
-    let bestScore = -999;
-
-    candidates.forEach((candidate) => {
-      const title = candidate.title.toLowerCase();
-      const looksRaster = /\.(jpg|jpeg|png)\b/.test(title);
-      if (!looksRaster) return;
-      if (banned.some((word) => title.includes(word))) return;
-
-      let score = 0;
-      tokens.forEach((token) => {
-        if (title.includes(token)) score += 3;
-      });
-      if (title.includes("exercise") || title.includes("workout") || title.includes("gym")) score += 1;
-      if (title.includes("how to")) score += 1;
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = candidate;
-      }
-    });
-
-    return bestScore >= 3 ? best : null;
+  function mapToBodyArea(value) {
+    const lower = value.toLowerCase();
+    if (lower.includes("chest") || lower.includes("pector")) return "Chest";
+    if (lower.includes("back") || lower.includes("lats") || lower.includes("trap")) return "Back";
+    if (lower.includes("shoulder") || lower.includes("delt")) return "Shoulders";
+    if (lower.includes("bicep")) return "Biceps";
+    if (lower.includes("tricep")) return "Triceps";
+    if (lower.includes("leg") || lower.includes("quad") || lower.includes("ham")) return "Legs";
+    if (lower.includes("glute")) return "Glutes";
+    if (lower.includes("core") || lower.includes("abs") || lower.includes("waist")) return "Core";
+    return "Full Body";
   }
 
-  function updateExerciseImages(exerciseId, url) {
-    const targets = document.querySelectorAll(`[data-exercise-image="${exerciseId}"]`);
-    targets.forEach((img) => {
-      img.setAttribute("src", url);
-    });
+  function unique(values) {
+    return Array.from(new Set(values));
   }
 
   function toggleSetValue(set, value) {
-    if (set.has(value)) {
-      set.delete(value);
-    } else {
-      set.add(value);
-    }
+    if (set.has(value)) set.delete(value);
+    else set.add(value);
   }
 
   function clampInt(value, min, max, fallback) {

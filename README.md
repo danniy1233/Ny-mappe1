@@ -16,6 +16,7 @@ Denne version er lavet til gratis hosting pa GitHub Pages og bruger kun lokal la
 - `docs/styles.css`
 - `docs/exercises.js`
 - `docs/app.js`
+- `docs/config.js`
 
 ## Koer lokalt
 
@@ -41,6 +42,21 @@ Denne version er lavet til gratis hosting pa GitHub Pages og bruger kun lokal la
 - Favoritter, filtre og workout-historik gemmes pa den enkelte enhed i browseren.
 - Data synkroniseres ikke mellem devices.
 - Hvis browserdata ryddes, forsvinder data.
+
+## API setup (ExerciseDB + Muscle Visualizer)
+
+Du kan skifte fra lokal data til API-data i `docs/config.js`.
+
+1. Sæt `dataSource` til `"exercisedb"`.
+2. Sæt `exerciseDbEndpoint` til dit endpoint.
+3. Hvis endpoint er via RapidAPI, udfyld `exerciseDbApiKey` og `exerciseDbApiHost`.
+4. Vælg billedmode:
+   - `imageMode: "exercise"` for API-media (GIF/billeder fra exercise API)
+   - `imageMode: "muscle"` for anatomiske billeder via template
+5. Hvis du bruger anatomiske billeder, udfyld `muscleVisualizerTemplate` med placeholders:
+   - `{primaryMuscle}`
+   - `{bodyArea}`
+   - `{exerciseName}`
 
 ## Bemarkning
 

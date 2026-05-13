@@ -129,6 +129,7 @@ input[type="number"] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
+  margin-bottom: 14px;
 }
 
 .chips {
@@ -223,6 +224,7 @@ input[type="number"] {
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
+  margin-top: 6px;
 }
 
 .primary:hover {
