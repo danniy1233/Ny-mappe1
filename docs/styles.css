@@ -169,8 +169,10 @@ input[type="number"] {
 }
 
 .exercise-image {
-  width: 140px;
-  height: 88px;
+  width: 120px !important;
+  max-width: 120px !important;
+  min-width: 120px;
+  height: 76px !important;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -246,7 +248,9 @@ input[type="number"] {
   }
 
   .exercise-image {
-    width: 118px;
-    height: 74px;
+    width: 104px !important;
+    max-width: 104px !important;
+    min-width: 104px;
+    height: 66px !important;
   }
 }

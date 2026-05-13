@@ -172,7 +172,7 @@
       card.className = "exercise-card";
       const imageUrl = getImageForExercise(exercise);
       card.innerHTML = `
-        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(exercise.name)}" data-exercise-image="${exercise.id}" loading="lazy" />
+        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(exercise.name)}" data-exercise-image="${exercise.id}" loading="lazy" width="120" height="76" />
         <div class="exercise-top">
           <h3 class="exercise-name">${escapeHtml(exercise.name)}</h3>
           <button class="favorite-btn ${state.favorites.has(exercise.id) ? "active" : ""}" data-id="${exercise.id}" aria-label="Toggle favorit">
@@ -290,7 +290,7 @@
       card.className = "workout-card";
       const imageUrl = getImageForExercise(item.exercise);
       card.innerHTML = `
-        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.exercise.name)}" data-exercise-image="${item.exercise.id}" loading="lazy" />
+        <img class="exercise-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.exercise.name)}" data-exercise-image="${item.exercise.id}" loading="lazy" width="120" height="76" />
         <h3 class="exercise-name">${index + 1}. ${escapeHtml(item.exercise.name)}</h3>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
         <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))}</p>
