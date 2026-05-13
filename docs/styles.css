@@ -169,13 +169,14 @@ input[type="number"] {
 }
 
 .exercise-image {
-  width: 100%;
-  aspect-ratio: 16 / 9;
+  width: 140px;
+  height: 88px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid var(--line);
   margin-bottom: 8px;
   background: #e6eef4;
+  display: block;
 }
 
 .exercise-top {
@@ -242,5 +243,10 @@ input[type="number"] {
 @media (max-width: 600px) {
   .site-header h1 {
     font-size: 1.45rem;
+  }
+
+  .exercise-image {
+    width: 118px;
+    height: 74px;
   }
 }
