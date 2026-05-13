@@ -21,6 +21,13 @@ const BODY_AREA_OPTIONS = [
   "Full Body"
 ];
 
+const CATEGORY_OPTIONS = [
+  "Main Workout",
+  "Warm-Up",
+  "Stretching",
+  "Cardio"
+];
+
 const EXERCISES = [
   { name: "Push-Up", equipment: ["Bodyweight"], bodyAreas: ["Chest", "Triceps", "Core"] },
   { name: "Incline Push-Up", equipment: ["Bodyweight", "Bench"], bodyAreas: ["Chest", "Triceps"] },
@@ -177,4 +184,40 @@ const EXERCISES = [
   { name: "Band Romanian Deadlift", equipment: ["Resistance Band"], bodyAreas: ["Legs", "Glutes", "Back"] },
   { name: "Band Glute Bridge", equipment: ["Resistance Band"], bodyAreas: ["Glutes", "Legs"] },
   { name: "Band Lateral Walk", equipment: ["Resistance Band"], bodyAreas: ["Glutes", "Legs"] }
+  ,
+  { name: "Jumping Jacks", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Warm-Up"] },
+  { name: "High Knees", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Warm-Up"] },
+  { name: "Butt Kicks", equipment: ["Bodyweight"], bodyAreas: ["Legs"], categories: ["Warm-Up"] },
+  { name: "Arm Circles", equipment: ["Bodyweight"], bodyAreas: ["Shoulders"], categories: ["Warm-Up"] },
+  { name: "World's Greatest Stretch", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Warm-Up", "Stretching"] },
+  { name: "Inchworm Walkout", equipment: ["Bodyweight"], bodyAreas: ["Core", "Shoulders"], categories: ["Warm-Up"] },
+  { name: "Leg Swings", equipment: ["Bodyweight"], bodyAreas: ["Legs", "Glutes"], categories: ["Warm-Up"] },
+  { name: "Hip Circles", equipment: ["Bodyweight"], bodyAreas: ["Glutes", "Legs"], categories: ["Warm-Up"] },
+  { name: "Cat-Cow", equipment: ["Bodyweight"], bodyAreas: ["Back", "Core"], categories: ["Warm-Up"] },
+  { name: "Scapular Push-Up", equipment: ["Bodyweight"], bodyAreas: ["Shoulders", "Chest"], categories: ["Warm-Up"] },
+  { name: "Hamstring Stretch", equipment: ["Bodyweight"], bodyAreas: ["Legs"], categories: ["Stretching"] },
+  { name: "Quad Stretch", equipment: ["Bodyweight"], bodyAreas: ["Legs"], categories: ["Stretching"] },
+  { name: "Hip Flexor Stretch", equipment: ["Bodyweight"], bodyAreas: ["Legs", "Glutes"], categories: ["Stretching"] },
+  { name: "Glute Stretch", equipment: ["Bodyweight"], bodyAreas: ["Glutes"], categories: ["Stretching"] },
+  { name: "Calf Stretch", equipment: ["Bodyweight"], bodyAreas: ["Legs"], categories: ["Stretching"] },
+  { name: "Chest Doorway Stretch", equipment: ["Bodyweight"], bodyAreas: ["Chest", "Shoulders"], categories: ["Stretching"] },
+  { name: "Lat Stretch", equipment: ["Bodyweight"], bodyAreas: ["Back", "Shoulders"], categories: ["Stretching"] },
+  { name: "Child's Pose", equipment: ["Bodyweight"], bodyAreas: ["Back", "Shoulders"], categories: ["Stretching"] },
+  { name: "Cobra Stretch", equipment: ["Bodyweight"], bodyAreas: ["Core"], categories: ["Stretching"] },
+  { name: "Thoracic Rotation Stretch", equipment: ["Bodyweight"], bodyAreas: ["Back", "Shoulders"], categories: ["Stretching"] },
+
+  { name: "Jump Rope", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Cardio", "Warm-Up"] },
+  { name: "Jog in Place", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Cardio", "Warm-Up"] },
+  { name: "Mountain Climbers", equipment: ["Bodyweight"], bodyAreas: ["Core", "Full Body"], categories: ["Cardio", "Warm-Up"] },
+  { name: "Burpees", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Cardio", "Main Workout"] },
+  { name: "Skater Hops", equipment: ["Bodyweight"], bodyAreas: ["Legs", "Glutes"], categories: ["Cardio", "Main Workout"] },
+  { name: "Jump Squats", equipment: ["Bodyweight"], bodyAreas: ["Legs", "Glutes"], categories: ["Cardio", "Main Workout"] },
+  { name: "Alternating Reverse Lunges (Fast Pace)", equipment: ["Bodyweight"], bodyAreas: ["Legs", "Glutes"], categories: ["Cardio", "Main Workout"] },
+  { name: "Shadow Boxing", equipment: ["Bodyweight"], bodyAreas: ["Full Body", "Shoulders"], categories: ["Cardio", "Main Workout"] },
+  { name: "Kettlebell Swing Intervals", equipment: ["Kettlebell"], bodyAreas: ["Full Body", "Glutes", "Core"], categories: ["Cardio", "Main Workout"] },
+  { name: "Ring Row Intervals", equipment: ["Gymnastic Rings", "Bodyweight"], bodyAreas: ["Back", "Biceps", "Core"], categories: ["Cardio", "Main Workout"] },
+  { name: "Fast Step-Ups", equipment: ["Bench", "Bodyweight"], bodyAreas: ["Legs", "Glutes"], categories: ["Cardio", "Main Workout"] },
+  { name: "Brisk Walk Cooldown", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Cardio", "Stretching"] },
+  { name: "Easy Jog Cooldown", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Cardio", "Stretching"] },
+  { name: "March in Place Cooldown", equipment: ["Bodyweight"], bodyAreas: ["Full Body"], categories: ["Cardio", "Stretching"] }
 ];

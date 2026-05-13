@@ -18,7 +18,10 @@
       id: `local-${index + 1}`,
       name: exercise.name,
       equipment: exercise.equipment || [],
-      bodyAreas: exercise.bodyAreas || []
+      bodyAreas: exercise.bodyAreas || [],
+      categories: Array.isArray(exercise.categories) && exercise.categories.length > 0
+        ? exercise.categories
+        : ["Main Workout"]
     }))
   };
 
@@ -32,6 +35,7 @@
     libraryFavoritesOnly: document.getElementById("library-favorites-only"),
     libraryEquipmentFilters: document.getElementById("library-equipment-filters"),
     libraryBodyareaFilters: document.getElementById("library-bodyarea-filters"),
+    libraryCategoryFilters: document.getElementById("library-category-filters"),
     exerciseCount: document.getElementById("exercise-count"),
     exerciseList: document.getElementById("exercise-list"),
     modeInput: document.getElementById("mode-input"),
@@ -46,6 +50,7 @@
     generatorFavoritesOnly: document.getElementById("generator-favorites-only"),
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
+    generatorCategoryFilters: document.getElementById("generator-category-filters"),
     generateButton: document.getElementById("generate-button"),
     generatedWorkout: document.getElementById("generated-workout"),
     historyList: document.getElementById("history-list"),
@@ -134,6 +139,11 @@
       renderFilters();
       renderExerciseList();
     });
+    renderChipGroup(elements.libraryCategoryFilters, CATEGORY_OPTIONS, state.settings.library.categories, () => {
+      persistSettings();
+      renderFilters();
+      renderExerciseList();
+    });
 
     renderChipGroup(
       elements.generatorEquipmentFilters,
@@ -149,6 +159,15 @@
       elements.generatorBodyareaFilters,
       BODY_AREA_OPTIONS,
       state.settings.generator.bodyAreas,
+      () => {
+        persistSettings();
+        renderFilters();
+      }
+    );
+    renderChipGroup(
+      elements.generatorCategoryFilters,
+      CATEGORY_OPTIONS,
+      state.settings.generator.categories,
       () => {
         persistSettings();
         renderFilters();
@@ -197,6 +216,7 @@
         </div>
         <a class="demo-link" href="${escapeHtml(getDemoSearchUrl(exercise.name))}" target="_blank" rel="noopener noreferrer">Demo</a>
         <p class="meta">${escapeHtml(exercise.bodyAreas.join(", "))}</p>
+        <p class="meta">${escapeHtml(exercise.categories.join(", "))}</p>
         <p class="meta">${escapeHtml(exercise.equipment.join(", "))}</p>
       `;
       elements.exerciseList.appendChild(card);
@@ -222,8 +242,10 @@
       library.equipment.size === 0 || exercise.equipment.some((value) => library.equipment.has(value));
     const matchesBodyAreas =
       library.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => library.bodyAreas.has(value));
+    const matchesCategories =
+      library.categories.size === 0 || exercise.categories.some((value) => library.categories.has(value));
 
-    return matchesSearch && matchesFavorites && matchesEquipment && matchesBodyAreas;
+    return matchesSearch && matchesFavorites && matchesEquipment && matchesBodyAreas && matchesCategories;
   }
 
   function onGeneratorSettingsChange() {
@@ -263,7 +285,9 @@
         settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
       const matchesBodyAreas =
         settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
-      return matchesFavorites && matchesEquipment && matchesBodyAreas;
+      const matchesCategories =
+        settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
+      return matchesFavorites && matchesEquipment && matchesBodyAreas && matchesCategories;
     });
 
     if (pool.length === 0 && lockedItems.length === 0) {
@@ -359,7 +383,7 @@
           </label>
         </div>
         <p class="workout-line">${item.sets} sets x ${item.reps} reps</p>
-        <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))}</p>
+        <p class="meta">${escapeHtml(item.exercise.bodyAreas.join(", "))} • ${escapeHtml(item.exercise.categories.join(", "))}</p>
         <div class="workout-actions">
           <button type="button" class="secondary small" data-edit-type="duplicate" data-index="${index}">Dupliker</button>
           <button type="button" class="secondary small" data-edit-type="up" data-index="${index}">Op</button>
@@ -442,7 +466,8 @@
         searchText: "",
         favoritesOnly: false,
         equipment: new Set(),
-        bodyAreas: new Set()
+        bodyAreas: new Set(),
+        categories: new Set()
       },
       generator: {
         mode: "count",
@@ -456,7 +481,8 @@
         restSeconds: 75,
         favoritesOnly: false,
         equipment: new Set(),
-        bodyAreas: new Set()
+        bodyAreas: new Set(),
+        categories: new Set()
       }
     };
 
@@ -470,7 +496,8 @@
           searchText: typeof parsed?.library?.searchText === "string" ? parsed.library.searchText : "",
           favoritesOnly: Boolean(parsed?.library?.favoritesOnly),
           equipment: new Set(Array.isArray(parsed?.library?.equipment) ? parsed.library.equipment : []),
-          bodyAreas: new Set(Array.isArray(parsed?.library?.bodyAreas) ? parsed.library.bodyAreas : [])
+          bodyAreas: new Set(Array.isArray(parsed?.library?.bodyAreas) ? parsed.library.bodyAreas : []),
+          categories: new Set(Array.isArray(parsed?.library?.categories) ? parsed.library.categories : [])
         },
         generator: {
           mode: parsed?.generator?.mode === "time" ? "time" : "count",
@@ -484,7 +511,8 @@
           restSeconds: clampInt(parsed?.generator?.restSeconds, 0, 300, 75),
           favoritesOnly: Boolean(parsed?.generator?.favoritesOnly),
           equipment: new Set(Array.isArray(parsed?.generator?.equipment) ? parsed.generator.equipment : []),
-          bodyAreas: new Set(Array.isArray(parsed?.generator?.bodyAreas) ? parsed.generator.bodyAreas : [])
+          bodyAreas: new Set(Array.isArray(parsed?.generator?.bodyAreas) ? parsed.generator.bodyAreas : []),
+          categories: new Set(Array.isArray(parsed?.generator?.categories) ? parsed.generator.categories : [])
         }
       };
     } catch (_error) {
@@ -498,7 +526,8 @@
         searchText: state.settings.library.searchText,
         favoritesOnly: state.settings.library.favoritesOnly,
         equipment: Array.from(state.settings.library.equipment),
-        bodyAreas: Array.from(state.settings.library.bodyAreas)
+        bodyAreas: Array.from(state.settings.library.bodyAreas),
+        categories: Array.from(state.settings.library.categories)
       },
       generator: {
         mode: state.settings.generator.mode,
@@ -512,7 +541,8 @@
         restSeconds: state.settings.generator.restSeconds,
         favoritesOnly: state.settings.generator.favoritesOnly,
         equipment: Array.from(state.settings.generator.equipment),
-        bodyAreas: Array.from(state.settings.generator.bodyAreas)
+        bodyAreas: Array.from(state.settings.generator.bodyAreas),
+        categories: Array.from(state.settings.generator.categories)
       }
     };
     localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(serializable));
@@ -545,7 +575,10 @@
             id: String(exercise.id),
             name: String(exercise.name),
             equipment: Array.isArray(exercise.equipment) ? exercise.equipment : [],
-            bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : []
+            bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : [],
+            categories: Array.isArray(exercise.categories) && exercise.categories.length > 0
+              ? exercise.categories
+              : ["Main Workout"]
           },
           sets,
           reps,
@@ -867,7 +900,10 @@
                   id: String(exercise.id),
                   name: String(exercise.name),
                   equipment: Array.isArray(exercise.equipment) ? exercise.equipment : [],
-                  bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : []
+                  bodyAreas: Array.isArray(exercise.bodyAreas) ? exercise.bodyAreas : [],
+                  categories: Array.isArray(exercise.categories) && exercise.categories.length > 0
+                    ? exercise.categories
+                    : ["Main Workout"]
                 },
                 sets,
                 reps,
@@ -898,7 +934,10 @@
               id: String(item.exercise.id || ""),
               name: String(item.exercise.name || ""),
               equipment: Array.isArray(item.exercise.equipment) ? item.exercise.equipment : [],
-              bodyAreas: Array.isArray(item.exercise.bodyAreas) ? item.exercise.bodyAreas : []
+              bodyAreas: Array.isArray(item.exercise.bodyAreas) ? item.exercise.bodyAreas : [],
+              categories: Array.isArray(item.exercise.categories) && item.exercise.categories.length > 0
+                ? item.exercise.categories
+                : ["Main Workout"]
             },
             sets,
             reps,
