@@ -57,6 +57,8 @@
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
     generatorCategoryFilters: document.getElementById("generator-category-filters"),
+    generatorWarmupCategoryFilters: document.getElementById("generator-warmup-category-filters"),
+    generatorStretchCategoryFilters: document.getElementById("generator-stretch-category-filters"),
     generateButton: document.getElementById("generate-button"),
     generatedWorkout: document.getElementById("generated-workout"),
     historyList: document.getElementById("history-list"),
@@ -185,6 +187,26 @@
         renderFilters();
       }
     );
+
+    renderChipGroup(
+      elements.generatorWarmupCategoryFilters,
+      CATEGORY_OPTIONS,
+      state.settings.generator.warmupCategories,
+      () => {
+        persistSettings();
+        renderFilters();
+      }
+    );
+
+    renderChipGroup(
+      elements.generatorStretchCategoryFilters,
+      CATEGORY_OPTIONS,
+      state.settings.generator.stretchingCategories,
+      () => {
+        persistSettings();
+        renderFilters();
+      }
+    );
   }
 
   function renderChipGroup(container, values, selectedValues, afterToggle) {
@@ -305,20 +327,33 @@
       return matchesFavorites && matchesEquipment && matchesBodyAreas;
     };
 
+    const matchesMainCategories = (exercise) =>
+      settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
+    const matchesWarmupCategories = (exercise) =>
+      settings.warmupCategories.size === 0 ||
+      exercise.categories.some((value) => settings.warmupCategories.has(value));
+    const matchesStretchCategories = (exercise) =>
+      settings.stretchingCategories.size === 0 ||
+      exercise.categories.some((value) => settings.stretchingCategories.has(value));
+
     const mainPool = state.exercises.filter((exercise) => {
       if (!matchesCommonGeneratorFilters(exercise)) return false;
-      const matchesCategories =
-        settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
       const isMain = exercise.categories.includes("Main Workout") || exercise.categories.includes("Cardio");
       const isWarmOrStretch = exercise.categories.includes("Warm-Up") || exercise.categories.includes("Stretching");
-      return matchesCategories && isMain && !isWarmOrStretch;
+      return matchesMainCategories(exercise) && isMain && !isWarmOrStretch;
     });
 
     const warmupPool = state.exercises.filter(
-      (exercise) => matchesCommonGeneratorFilters(exercise) && exercise.categories.includes("Warm-Up")
+      (exercise) =>
+        matchesCommonGeneratorFilters(exercise) &&
+        exercise.categories.includes("Warm-Up") &&
+        matchesWarmupCategories(exercise)
     );
     const stretchPool = state.exercises.filter(
-      (exercise) => matchesCommonGeneratorFilters(exercise) && exercise.categories.includes("Stretching")
+      (exercise) =>
+        matchesCommonGeneratorFilters(exercise) &&
+        exercise.categories.includes("Stretching") &&
+        matchesStretchCategories(exercise)
     );
 
     const hasAnyCandidate =
@@ -430,8 +465,18 @@
 
       const isWarmup = exercise.categories.includes("Warm-Up");
       const isStretching = exercise.categories.includes("Stretching");
-      if (item.block === "Warm-Up") return isWarmup;
-      if (item.block === "Stretching") return isStretching;
+      if (item.block === "Warm-Up") {
+        const matchesWarmupCategories =
+          settings.warmupCategories.size === 0 ||
+          exercise.categories.some((value) => settings.warmupCategories.has(value));
+        return isWarmup && matchesWarmupCategories;
+      }
+      if (item.block === "Stretching") {
+        const matchesStretchCategories =
+          settings.stretchingCategories.size === 0 ||
+          exercise.categories.some((value) => settings.stretchingCategories.has(value));
+        return isStretching && matchesStretchCategories;
+      }
 
       const matchesCategories =
         settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
@@ -629,6 +674,8 @@
         equipment: new Set(),
         bodyAreas: new Set(),
         categories: new Set(),
+        warmupCategories: new Set(),
+        stretchingCategories: new Set(),
         warmup: {
           enabled: true,
           count: 3,
@@ -669,6 +716,8 @@
           equipment: new Set(Array.isArray(parsed?.generator?.equipment) ? parsed.generator.equipment : []),
           bodyAreas: new Set(Array.isArray(parsed?.generator?.bodyAreas) ? parsed.generator.bodyAreas : []),
           categories: new Set(Array.isArray(parsed?.generator?.categories) ? parsed.generator.categories : []),
+          warmupCategories: new Set(Array.isArray(parsed?.generator?.warmupCategories) ? parsed.generator.warmupCategories : []),
+          stretchingCategories: new Set(Array.isArray(parsed?.generator?.stretchingCategories) ? parsed.generator.stretchingCategories : []),
           warmup: {
             enabled: parsed?.generator?.warmup?.enabled !== false,
             count: clampInt(parsed?.generator?.warmup?.count, 0, 10, 3),
@@ -709,6 +758,8 @@
         equipment: Array.from(state.settings.generator.equipment),
         bodyAreas: Array.from(state.settings.generator.bodyAreas),
         categories: Array.from(state.settings.generator.categories),
+        warmupCategories: Array.from(state.settings.generator.warmupCategories),
+        stretchingCategories: Array.from(state.settings.generator.stretchingCategories),
         warmup: {
           enabled: state.settings.generator.warmup.enabled,
           count: state.settings.generator.warmup.count,
@@ -1304,3 +1355,4 @@
     return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
   }
 })();
+
