@@ -61,6 +61,10 @@
     generatorWarmupBodyareaFilters: document.getElementById("generator-warmup-bodyarea-filters"),
     generatorStretchEquipmentFilters: document.getElementById("generator-stretch-equipment-filters"),
     generatorStretchBodyareaFilters: document.getElementById("generator-stretch-bodyarea-filters"),
+    clearLibraryFilters: document.getElementById("clear-library-filters"),
+    clearGeneratorMainFilters: document.getElementById("clear-generator-main-filters"),
+    clearGeneratorWarmupFilters: document.getElementById("clear-generator-warmup-filters"),
+    clearGeneratorStretchFilters: document.getElementById("clear-generator-stretch-filters"),
     generateButton: document.getElementById("generate-button"),
     generatedWorkout: document.getElementById("generated-workout"),
     historyList: document.getElementById("history-list"),
@@ -122,6 +126,10 @@
     elements.includeStretching.addEventListener("change", onGeneratorSettingsChange);
     elements.stretchCount.addEventListener("change", onGeneratorSettingsChange);
     elements.stretchDurationMinutes.addEventListener("change", onGeneratorSettingsChange);
+    elements.clearLibraryFilters.addEventListener("click", clearLibraryFilters);
+    elements.clearGeneratorMainFilters.addEventListener("click", clearGeneratorMainFilters);
+    elements.clearGeneratorWarmupFilters.addEventListener("click", clearGeneratorWarmupFilters);
+    elements.clearGeneratorStretchFilters.addEventListener("click", clearGeneratorStretchFilters);
     elements.generateButton.addEventListener("click", generateWorkout);
     elements.clearHistory.addEventListener("click", clearAllHistory);
     elements.startFromGenerated.addEventListener("click", startFromGeneratedWorkout);
@@ -245,6 +253,43 @@
       });
       container.appendChild(chip);
     });
+  }
+
+  function clearLibraryFilters() {
+    state.settings.library.searchText = "";
+    state.settings.library.favoritesOnly = false;
+    state.settings.library.equipment.clear();
+    state.settings.library.bodyAreas.clear();
+    state.settings.library.categories.clear();
+    elements.searchInput.value = "";
+    elements.libraryFavoritesOnly.checked = false;
+    persistSettings();
+    renderFilters();
+    renderExerciseList();
+  }
+
+  function clearGeneratorMainFilters() {
+    state.settings.generator.favoritesOnly = false;
+    state.settings.generator.equipment.clear();
+    state.settings.generator.bodyAreas.clear();
+    state.settings.generator.categories.clear();
+    elements.generatorFavoritesOnly.checked = false;
+    persistSettings();
+    renderFilters();
+  }
+
+  function clearGeneratorWarmupFilters() {
+    state.settings.generator.warmupEquipment.clear();
+    state.settings.generator.warmupBodyAreas.clear();
+    persistSettings();
+    renderFilters();
+  }
+
+  function clearGeneratorStretchFilters() {
+    state.settings.generator.stretchingEquipment.clear();
+    state.settings.generator.stretchingBodyAreas.clear();
+    persistSettings();
+    renderFilters();
   }
 
   function renderExerciseList() {
