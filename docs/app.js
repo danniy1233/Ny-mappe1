@@ -57,8 +57,10 @@
     generatorEquipmentFilters: document.getElementById("generator-equipment-filters"),
     generatorBodyareaFilters: document.getElementById("generator-bodyarea-filters"),
     generatorCategoryFilters: document.getElementById("generator-category-filters"),
-    generatorWarmupCategoryFilters: document.getElementById("generator-warmup-category-filters"),
-    generatorStretchCategoryFilters: document.getElementById("generator-stretch-category-filters"),
+    generatorWarmupEquipmentFilters: document.getElementById("generator-warmup-equipment-filters"),
+    generatorWarmupBodyareaFilters: document.getElementById("generator-warmup-bodyarea-filters"),
+    generatorStretchEquipmentFilters: document.getElementById("generator-stretch-equipment-filters"),
+    generatorStretchBodyareaFilters: document.getElementById("generator-stretch-bodyarea-filters"),
     generateButton: document.getElementById("generate-button"),
     generatedWorkout: document.getElementById("generated-workout"),
     historyList: document.getElementById("history-list"),
@@ -189,9 +191,9 @@
     );
 
     renderChipGroup(
-      elements.generatorWarmupCategoryFilters,
-      CATEGORY_OPTIONS,
-      state.settings.generator.warmupCategories,
+      elements.generatorWarmupEquipmentFilters,
+      EQUIPMENT_OPTIONS,
+      state.settings.generator.warmupEquipment,
       () => {
         persistSettings();
         renderFilters();
@@ -199,9 +201,29 @@
     );
 
     renderChipGroup(
-      elements.generatorStretchCategoryFilters,
-      CATEGORY_OPTIONS,
-      state.settings.generator.stretchingCategories,
+      elements.generatorWarmupBodyareaFilters,
+      BODY_AREA_OPTIONS,
+      state.settings.generator.warmupBodyAreas,
+      () => {
+        persistSettings();
+        renderFilters();
+      }
+    );
+
+    renderChipGroup(
+      elements.generatorStretchEquipmentFilters,
+      EQUIPMENT_OPTIONS,
+      state.settings.generator.stretchingEquipment,
+      () => {
+        persistSettings();
+        renderFilters();
+      }
+    );
+
+    renderChipGroup(
+      elements.generatorStretchBodyareaFilters,
+      BODY_AREA_OPTIONS,
+      state.settings.generator.stretchingBodyAreas,
       () => {
         persistSettings();
         renderFilters();
@@ -317,43 +339,56 @@
     const lockedItems = state.generatedWorkout.filter((item) => item.locked && item.block === "Main");
     const lockedIds = new Set(lockedItems.map((item) => item.exercise.id));
 
-    const matchesCommonGeneratorFilters = (exercise) => {
+    const matchesBaseGeneratorFilters = (exercise) => {
       if (lockedIds.has(exercise.id)) return false;
-      const matchesFavorites = !settings.favoritesOnly || state.favorites.has(exercise.id);
-      const matchesEquipment =
-        settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
-      const matchesBodyAreas =
-        settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
-      return matchesFavorites && matchesEquipment && matchesBodyAreas;
+      return !settings.favoritesOnly || state.favorites.has(exercise.id);
     };
 
+    const matchesMainEquipment = (exercise) =>
+      settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
+    const matchesMainBodyAreas = (exercise) =>
+      settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
     const matchesMainCategories = (exercise) =>
       settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
-    const matchesWarmupCategories = (exercise) =>
-      settings.warmupCategories.size === 0 ||
-      exercise.categories.some((value) => settings.warmupCategories.has(value));
-    const matchesStretchCategories = (exercise) =>
-      settings.stretchingCategories.size === 0 ||
-      exercise.categories.some((value) => settings.stretchingCategories.has(value));
+
+    const matchesWarmupEquipment = (exercise) =>
+      settings.warmupEquipment.size === 0 || exercise.equipment.some((value) => settings.warmupEquipment.has(value));
+    const matchesWarmupBodyAreas = (exercise) =>
+      settings.warmupBodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.warmupBodyAreas.has(value));
+
+    const matchesStretchEquipment = (exercise) =>
+      settings.stretchingEquipment.size === 0 ||
+      exercise.equipment.some((value) => settings.stretchingEquipment.has(value));
+    const matchesStretchBodyAreas = (exercise) =>
+      settings.stretchingBodyAreas.size === 0 ||
+      exercise.bodyAreas.some((value) => settings.stretchingBodyAreas.has(value));
 
     const mainPool = state.exercises.filter((exercise) => {
-      if (!matchesCommonGeneratorFilters(exercise)) return false;
+      if (!matchesBaseGeneratorFilters(exercise)) return false;
       const isMain = exercise.categories.includes("Main Workout") || exercise.categories.includes("Cardio");
       const isWarmOrStretch = exercise.categories.includes("Warm-Up") || exercise.categories.includes("Stretching");
-      return matchesMainCategories(exercise) && isMain && !isWarmOrStretch;
+      return (
+        matchesMainEquipment(exercise) &&
+        matchesMainBodyAreas(exercise) &&
+        matchesMainCategories(exercise) &&
+        isMain &&
+        !isWarmOrStretch
+      );
     });
 
     const warmupPool = state.exercises.filter(
       (exercise) =>
-        matchesCommonGeneratorFilters(exercise) &&
+        matchesBaseGeneratorFilters(exercise) &&
         exercise.categories.includes("Warm-Up") &&
-        matchesWarmupCategories(exercise)
+        matchesWarmupEquipment(exercise) &&
+        matchesWarmupBodyAreas(exercise)
     );
     const stretchPool = state.exercises.filter(
       (exercise) =>
-        matchesCommonGeneratorFilters(exercise) &&
+        matchesBaseGeneratorFilters(exercise) &&
         exercise.categories.includes("Stretching") &&
-        matchesStretchCategories(exercise)
+        matchesStretchEquipment(exercise) &&
+        matchesStretchBodyAreas(exercise)
     );
 
     const hasAnyCandidate =
@@ -457,31 +492,35 @@
       if (excludedIds.has(exercise.id)) return false;
 
       const matchesFavorites = !settings.favoritesOnly || state.favorites.has(exercise.id);
-      const matchesEquipment =
-        settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
-      const matchesBodyAreas =
-        settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
-      if (!matchesFavorites || !matchesEquipment || !matchesBodyAreas) return false;
+      if (!matchesFavorites) return false;
 
       const isWarmup = exercise.categories.includes("Warm-Up");
       const isStretching = exercise.categories.includes("Stretching");
       if (item.block === "Warm-Up") {
-        const matchesWarmupCategories =
-          settings.warmupCategories.size === 0 ||
-          exercise.categories.some((value) => settings.warmupCategories.has(value));
-        return isWarmup && matchesWarmupCategories;
+        const matchesWarmupEquipment =
+          settings.warmupEquipment.size === 0 || exercise.equipment.some((value) => settings.warmupEquipment.has(value));
+        const matchesWarmupBodyAreas =
+          settings.warmupBodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.warmupBodyAreas.has(value));
+        return isWarmup && matchesWarmupEquipment && matchesWarmupBodyAreas;
       }
       if (item.block === "Stretching") {
-        const matchesStretchCategories =
-          settings.stretchingCategories.size === 0 ||
-          exercise.categories.some((value) => settings.stretchingCategories.has(value));
-        return isStretching && matchesStretchCategories;
+        const matchesStretchEquipment =
+          settings.stretchingEquipment.size === 0 ||
+          exercise.equipment.some((value) => settings.stretchingEquipment.has(value));
+        const matchesStretchBodyAreas =
+          settings.stretchingBodyAreas.size === 0 ||
+          exercise.bodyAreas.some((value) => settings.stretchingBodyAreas.has(value));
+        return isStretching && matchesStretchEquipment && matchesStretchBodyAreas;
       }
 
+      const matchesEquipment =
+        settings.equipment.size === 0 || exercise.equipment.some((value) => settings.equipment.has(value));
+      const matchesBodyAreas =
+        settings.bodyAreas.size === 0 || exercise.bodyAreas.some((value) => settings.bodyAreas.has(value));
       const matchesCategories =
         settings.categories.size === 0 || exercise.categories.some((value) => settings.categories.has(value));
       const isMain = exercise.categories.includes("Main Workout") || exercise.categories.includes("Cardio");
-      return matchesCategories && isMain && !isWarmup && !isStretching;
+      return matchesEquipment && matchesBodyAreas && matchesCategories && isMain && !isWarmup && !isStretching;
     });
   }
 
@@ -674,8 +713,10 @@
         equipment: new Set(),
         bodyAreas: new Set(),
         categories: new Set(),
-        warmupCategories: new Set(),
-        stretchingCategories: new Set(),
+        warmupEquipment: new Set(),
+        warmupBodyAreas: new Set(),
+        stretchingEquipment: new Set(),
+        stretchingBodyAreas: new Set(),
         warmup: {
           enabled: true,
           count: 3,
@@ -716,8 +757,10 @@
           equipment: new Set(Array.isArray(parsed?.generator?.equipment) ? parsed.generator.equipment : []),
           bodyAreas: new Set(Array.isArray(parsed?.generator?.bodyAreas) ? parsed.generator.bodyAreas : []),
           categories: new Set(Array.isArray(parsed?.generator?.categories) ? parsed.generator.categories : []),
-          warmupCategories: new Set(Array.isArray(parsed?.generator?.warmupCategories) ? parsed.generator.warmupCategories : []),
-          stretchingCategories: new Set(Array.isArray(parsed?.generator?.stretchingCategories) ? parsed.generator.stretchingCategories : []),
+          warmupEquipment: new Set(Array.isArray(parsed?.generator?.warmupEquipment) ? parsed.generator.warmupEquipment : []),
+          warmupBodyAreas: new Set(Array.isArray(parsed?.generator?.warmupBodyAreas) ? parsed.generator.warmupBodyAreas : []),
+          stretchingEquipment: new Set(Array.isArray(parsed?.generator?.stretchingEquipment) ? parsed.generator.stretchingEquipment : []),
+          stretchingBodyAreas: new Set(Array.isArray(parsed?.generator?.stretchingBodyAreas) ? parsed.generator.stretchingBodyAreas : []),
           warmup: {
             enabled: parsed?.generator?.warmup?.enabled !== false,
             count: clampInt(parsed?.generator?.warmup?.count, 0, 10, 3),
@@ -758,8 +801,10 @@
         equipment: Array.from(state.settings.generator.equipment),
         bodyAreas: Array.from(state.settings.generator.bodyAreas),
         categories: Array.from(state.settings.generator.categories),
-        warmupCategories: Array.from(state.settings.generator.warmupCategories),
-        stretchingCategories: Array.from(state.settings.generator.stretchingCategories),
+        warmupEquipment: Array.from(state.settings.generator.warmupEquipment),
+        warmupBodyAreas: Array.from(state.settings.generator.warmupBodyAreas),
+        stretchingEquipment: Array.from(state.settings.generator.stretchingEquipment),
+        stretchingBodyAreas: Array.from(state.settings.generator.stretchingBodyAreas),
         warmup: {
           enabled: state.settings.generator.warmup.enabled,
           count: state.settings.generator.warmup.count,
